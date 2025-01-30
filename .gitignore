@@ -3,4 +3,4 @@ target/*
 .vscode
 
 
-run_*.sh
+run_default.sh
