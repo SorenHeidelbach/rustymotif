@@ -1,5 +1,5 @@
-use std::{fmt::Display, str::FromStr};
 use anyhow::{bail, Result};
+use std::{fmt::Display, str::FromStr};
 
 /// Represents the DNA strand of reference.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
