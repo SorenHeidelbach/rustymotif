@@ -10,6 +10,10 @@ pub enum ModType {
 }
 
 impl ModType {
+    pub fn iter() -> impl Iterator<Item = ModType> {
+        vec![ModType::SixMA, ModType::FiveMC, ModType::FourMC].into_iter()
+    }
+
     pub fn to_pileup_code(&self) -> &'static str {
         match self {
             ModType::SixMA => "a",
