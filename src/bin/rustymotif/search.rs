@@ -1,7 +1,9 @@
 use std::{collections::HashSet, hash::Hash};
 
-use crate::sequence::{Contig, EqualLengthDNASet, MethylationLevel};
-use crate::model::BetaBernoulliModel;
+use crate::{
+    sequence::{Contig, EqualLengthDNASet, MethylationLevel},
+    model::BetaBernoulliModel,
+};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
 use bio::bio_types::annot::contig;
@@ -10,10 +12,17 @@ use ordered_float::OrderedFloat;
 use petgraph::{
     algo::min_spanning_tree, graph::{Graph, NodeIndex}, Direction
 };
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
-use utils::{iupac::IupacBase, motif::Motif};
-use utils::{modtype::ModType, motif, motif::MotifLike, pileup, strand::Strand};
+use std::{
+    cmp::Ordering,
+    collections::BinaryHeap
+};
+use utils::{
+    iupac::IupacBase, motif::Motif,
+    modtype::ModType, 
+    motif, motif::MotifLike, 
+    pileup, 
+    strand::Strand,
+};
 use itertools::Itertools;
 
 
@@ -24,7 +33,7 @@ pub fn motif_search(
     min_kl_divergence: f64,
     min_base_probability: f64,
     max_branching_with_no_improvement: usize,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<Vec<Motif>, Box<dyn std::error::Error>> {
     println!("Searching for motifs in contig: {}", contig.reference);
 
     // Inititate motif result
@@ -92,6 +101,7 @@ pub fn motif_search(
         seed_node_methylation_count.update(&contig);
 
         let mut keep_searching = true;
+        let priority_calculator = PriorityCalculator::new(1);
         while keep_searching {     
             let mut motif_graph = MotifGraph::new();
             motif_graph.add_node(seed_motif.clone(), 0.0, 0.0);
@@ -162,12 +172,13 @@ pub fn motif_search(
                                 rounds_since_best_score = 0;
                             }
 
-                            let priority = original_priority_function(&new_motif_counts, &node_methylation_count, 1.0);
+                            let priority = priority_calculator.priority_ad_hoc(&new_motif_counts, &node_methylation_count);
                             if motif_graph.add_node(new_motif.clone(), priority, score) {
                                 priority_que.push(motif_graph.get_node(&new_motif).unwrap().clone());
                             } else if motif_graph.get_node(&new_motif).unwrap().score < score {
                                 motif_graph.update_node(&new_motif, priority, score);
                             }
+                            motif_graph.add_edge(&node.motif, &new_motif);
                         }
                     }
                 }
@@ -202,7 +213,7 @@ pub fn motif_search(
         let pretty_motif_result = motif_result.iter().map(|m| m.as_pretty_string()).collect::<Vec<String>>();
         info!("Found {:?} motifs", pretty_motif_result);
     }
-    Ok(())
+    Ok(motif_result)
 }
 
 struct MotifMethylationCount {
@@ -239,33 +250,55 @@ fn scoring_function(motif: &MotifMethylationCount, motif_other: &MotifMethylatio
     let std_dev = (beta.standard_deviation() + beta_other.standard_deviation()) / 2.0;
     let score = beta.mean() * -std_dev.log10() * mean_diff;
     score
+}
+
+struct PriorityCalculator {
+    pseudocount: f64,
+}
+
+impl PriorityCalculator {
+    fn new(pseudocount: f64) -> Self {
+        Self {
+            pseudocount,
+        }
+    }
+
+    fn priority_ad_hoc(&self, motif: &MotifMethylationCount, motif_other: &MotifMethylationCount) -> f64 {
+        let motif_odds = (motif.high_methylated_positions as f64 + self.pseudocount) /( motif.lowly_methylated_positions as f64 + self.pseudocount);
+        let motif_other_odds = (motif_other.high_methylated_positions as f64 + self.pseudocount) / (motif_other.lowly_methylated_positions as f64 + self.pseudocount);
+        let priority = (1.0 - motif_odds) / motif_other_odds;
+        priority
+    }
+
+    fn priority_log_odds_ratio(&self, motif: &MotifMethylationCount, motif_other: &MotifMethylationCount) -> f64 {
+        log_odds_ratio(
+            motif.high_methylated_positions as f64,
+            motif.lowly_methylated_positions as f64,
+            motif_other.high_methylated_positions as f64,
+            motif_other.lowly_methylated_positions as f64,
+            self.pseudocount,
+        )
+    }
+
+    fn priority_log_odds_ratio_z_score(&self, motif: &MotifMethylationCount, motif_other: &MotifMethylationCount) -> f64 {
+        log_odds_ratio_z_score(
+            motif.high_methylated_positions as f64,
+            motif.lowly_methylated_positions as f64,
+            motif_other.high_methylated_positions as f64,
+            motif_other.lowly_methylated_positions as f64,
+            self.pseudocount,
+        )
+    }
+
+
 
 
 }
 
-
-
-fn priority_function(motif: &MotifMethylationCount, motif_other: &MotifMethylationCount) -> f64 {
-    // Calculate the priority
-    log_odds_ratio(
-        motif.high_methylated_positions as f64,
-        motif.lowly_methylated_positions as f64,
-        motif_other.high_methylated_positions as f64,
-        motif_other.lowly_methylated_positions as f64,
-        1.0,
-    )
-}
-
-fn original_priority_function(motif: &MotifMethylationCount, motif_other: &MotifMethylationCount, pseudocount: f64) -> f64 {
-    let motif_odds = (motif.high_methylated_positions as f64 + pseudocount) /( motif.lowly_methylated_positions as f64 + pseudocount);
-    let motif_other_odds = (motif_other.high_methylated_positions as f64 + pseudocount) / (motif_other.lowly_methylated_positions as f64 + pseudocount);
-    let priority = (1.0 - motif_odds) / motif_other_odds;
-    priority
-}
 
 fn log_odds_ratio(p1: f64, p2: f64, q1: f64, q2: f64, psudo_count: f64) -> f64 {
-    let odds_ratop = ((p1 + psudo_count) / (q1 + psudo_count)) / ((p2 + psudo_count) / (q2 + psudo_count));
-    -odds_ratop.ln()
+    let odds_ratio = ((p1 + psudo_count) / (q1 + psudo_count)) / ((p2 + psudo_count) / (q2 + psudo_count));
+    -odds_ratio.ln()
 }
 
 fn log_odds_ratio_z_score(p1: f64, p2: f64, q1: f64, q2: f64, psudo_count: f64) -> f64 {
