@@ -1,7 +1,8 @@
 use anyhow::bail;
+use anyhow::Result;
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum IupacBase {
     A,
     C,
@@ -44,6 +45,83 @@ impl IupacBase {
             IupacBase::H => "[ACT]",
             IupacBase::V => "[ACG]",
             IupacBase::N => ".",
+        }
+    }
+
+    pub fn to_set(&self) -> Vec<&'static str> {
+        match self {
+            IupacBase::A => vec!["A"],
+            IupacBase::C => vec!["C"],
+            IupacBase::G => vec!["G"],
+            IupacBase::T => vec!["T"],
+            IupacBase::R => vec!["A", "G"],
+            IupacBase::Y => vec!["C", "T"],
+            IupacBase::S => vec!["G", "C"],
+            IupacBase::W => vec!["A", "T"],
+            IupacBase::K => vec!["G", "T"],
+            IupacBase::M => vec!["A", "C"],
+            IupacBase::B => vec!["C", "G", "T"],
+            IupacBase::D => vec!["A", "G", "T"],
+            IupacBase::H => vec!["A", "C", "T"],
+            IupacBase::V => vec!["A", "C", "G"],
+            IupacBase::N => vec!["A", "C", "G", "T"],
+        }
+    }
+
+    pub fn join_other(&self, other: IupacBase) -> Result<IupacBase> {
+        let mut set = self.to_set();
+        set.extend(other.to_set());
+        IupacBase::from_set(set)
+    }
+
+    pub fn from_set(set: Vec<&str>) -> Result<IupacBase> {
+        // keep only unique elements
+        let set = set
+            .into_iter()
+            .collect::<std::collections::HashSet<&str>>()
+            .into_iter()
+            .collect::<Vec<&str>>();
+        match set.len() {
+            1 => match set[0] {
+                "A" => Ok(IupacBase::A),
+                "C" => Ok(IupacBase::C),
+                "G" => Ok(IupacBase::G),
+                "T" => Ok(IupacBase::T),
+                _ => bail!("Invalid IUPAC base: {}", set[0]),
+            },
+            2 => {
+                let mut set = set.iter().map(|&x| x).collect::<Vec<&str>>();
+                set.sort();
+                match set.as_slice() {
+                    ["A", "G"] => Ok(IupacBase::R),
+                    ["C", "T"] => Ok(IupacBase::Y),
+                    ["C", "G"] => Ok(IupacBase::S),
+                    ["A", "T"] => Ok(IupacBase::W),
+                    ["G", "T"] => Ok(IupacBase::K),
+                    ["A", "C"] => Ok(IupacBase::M),
+                    _ => bail!("Invalid IUPAC base: {:?}", set),
+                }
+            }
+            3 => {
+                let mut set = set.iter().map(|&x| x).collect::<Vec<&str>>();
+                set.sort();
+                match set.as_slice() {
+                    ["C", "G", "T"] => Ok(IupacBase::B),
+                    ["A", "G", "T"] => Ok(IupacBase::D),
+                    ["A", "C", "T"] => Ok(IupacBase::H),
+                    ["A", "C", "G"] => Ok(IupacBase::V),
+                    _ => bail!("Invalid IUPAC base: {:?}", set),
+                }
+            }
+            4 => {
+                let mut set = set.iter().map(|&x| x).collect::<Vec<&str>>();
+                set.sort();
+                match set.as_slice() {
+                    ["A", "C", "G", "T"] => Ok(IupacBase::N),
+                    _ => bail!("Invalid IUPAC base: {:?}", set),
+                }
+            }
+            _ => bail!("Invalid IUPAC base: {:?}", set),
         }
     }
 
@@ -133,7 +211,6 @@ impl IupacBase {
             IupacBase::A => match other {
                 IupacBase::A => true,
                 _ => false,
-                
             },
             IupacBase::C => match other {
                 IupacBase::C => true,
