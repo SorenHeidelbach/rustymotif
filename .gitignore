@@ -1,1 +1,6 @@
-/target
+
+target/*
+.vscode
+
+
+run_default.sh
