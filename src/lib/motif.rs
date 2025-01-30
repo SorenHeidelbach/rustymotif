@@ -1,5 +1,5 @@
 use crate::{iupac::IupacBase, modtype::ModType};
-use anyhow::Result;
+use anyhow::{Ok, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComplementMotif {
@@ -14,7 +14,7 @@ pub trait MotifLike {
     fn as_string(&self) -> String;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Motif {
     pub sequence: Vec<IupacBase>,
     pub mod_type: ModType,
@@ -77,6 +77,61 @@ impl Motif {
             .collect::<String>();
         reversed_sequence
     }
+
+    // Function that grows a motif at a given position with a set of bases which can be outside the motif sequence e.g. GATC to CNGATC
+
+    pub fn add_base_upstream(&mut self, base: IupacBase) -> Result<&Self> {
+        self.sequence.insert(0, base);
+        self.position += 1;
+        Ok(self)
+    }
+
+    pub fn add_base_downstream(&mut self, base: IupacBase) -> Result<&Self> {
+        self.sequence.push(base);
+        Ok(self)
+    }
+
+    pub fn grow_motif_at(&mut self, position: i8, bases: Vec<&str>) -> Result<&Self> {
+        let new_iupac = IupacBase::from_set(bases)?;
+        match position {
+            // if ngeative grow upstream
+            p if p < 0 => {
+                let p = p.abs();
+                for _ in 0..(p - 1) {
+                    self.add_base_upstream(IupacBase::N)?;
+                }
+                self.add_base_upstream(new_iupac)?;
+                Ok(self)
+            }
+            // if positive grow downstream
+            p if p >= self.sequence.len() as i8 => {
+                for _ in 0..(p - self.sequence.len() as i8) {
+                    self.add_base_downstream(IupacBase::N)?;
+                }
+                self.add_base_downstream(new_iupac)?;
+                Ok(self)
+            }
+            // if position is within the sequence
+            _ => {
+                let old_iupac = self.sequence[position as usize];
+                let updated_iupac = new_iupac.join_other(old_iupac)?;
+
+                self.sequence[position as usize] = updated_iupac;
+                Ok(self)
+            }
+        }
+    }
+    pub fn as_pretty_string(&self) -> String {
+        // replace iupac string modification type at the mod position
+        let mut pretty_sequence = self.sequence_string();
+        pretty_sequence.replace_range(
+            self.position as usize..(self.position + 1) as usize,
+            &self.mod_type.to_string(),
+        );
+
+        // return the pretty string
+        pretty_sequence
+    }
 }
 impl MotifLike for Motif {
     fn sequence_string(&self) -> String {
@@ -100,6 +155,7 @@ impl MotifLike for Motif {
             self.position
         )
     }
+
 
 }
 
@@ -238,6 +294,35 @@ mod tests {
     }
 
     #[test]
+    fn test_motif_grow_motif_at() {
+        let motif_default = Motif::new("ACGT", "6mA", 0).unwrap();
+        let mut motif = motif_default.clone();
+        motif.grow_motif_at(0, vec!["A", "C"]).unwrap();
+        assert_eq!(
+            motif.sequence,
+            vec![IupacBase::M, IupacBase::C, IupacBase::G, IupacBase::T]
+        );
+        let mut motif = motif_default.clone();
+        motif.grow_motif_at(1, vec!["A", "C"]).unwrap();
+        assert_eq!(
+            motif.sequence,
+            vec![IupacBase::A, IupacBase::M, IupacBase::G, IupacBase::T]
+        );
+        let mut motif = motif_default.clone();
+        motif.grow_motif_at(2, vec!["A", "C"]).unwrap();
+        assert_eq!(
+            motif.sequence,
+            vec![IupacBase::A, IupacBase::C, IupacBase::V, IupacBase::T]
+        );
+        let mut motif = motif_default.clone();
+        motif.grow_motif_at(3, vec!["A", "C"]).unwrap();
+        assert_eq!(
+            motif.sequence,
+            vec![IupacBase::A, IupacBase::C, IupacBase::G, IupacBase::H]
+        );
+    }
+
+    #[test]
     fn test_reverse_complement() {
         let motif = Motif::new("AACT", "6mA", 0).unwrap();
         let revcomp = motif.reverse_complement().unwrap();
@@ -279,7 +364,14 @@ mod tests {
         let revcomp = motif.reverse_complement().unwrap();
         assert_eq!(
             revcomp.sequence,
-            vec![IupacBase::C, IupacBase::A, IupacBase::G, IupacBase::C, IupacBase::T, IupacBase::G]
+            vec![
+                IupacBase::C,
+                IupacBase::A,
+                IupacBase::G,
+                IupacBase::C,
+                IupacBase::T,
+                IupacBase::G
+            ]
         );
         assert_eq!(revcomp.mod_type, ModType::FourMC);
         assert_eq!(revcomp.position, 2);
