@@ -1,6 +1,6 @@
 
 target/*
 .vscode
-rustymotif
+
 
 run_*.sh
