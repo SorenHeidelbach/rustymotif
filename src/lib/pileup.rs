@@ -1,16 +1,12 @@
+use crate::{modtype::ModType, strand::Strand};
+use ahash::AHashMap as HashMap;
 use anyhow::anyhow;
 use anyhow::Result;
 use atoi;
 use csv::{ByteRecord, ReaderBuilder};
 use log::{debug, info, warn};
-use crate::{
-    modtype::ModType, 
-    strand::Strand
-};
 use std::collections::VecDeque;
 use std::io::Read;
-use ahash::AHashMap as HashMap;
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PileupField {
@@ -49,14 +45,14 @@ impl FieldMapping {
 impl Default for FieldMapping {
     fn default() -> Self {
         Self::new()
-        .with_field(PileupField::Reference, 0)
-        .with_field(PileupField::Position, 1)
-        .with_field(PileupField::Strand, 5)
-        .with_field(PileupField::ModType, 3)
-        .with_field(PileupField::NMod, 11)
-        .with_field(PileupField::NValidCov, 9)
-        .with_field(PileupField::NCanonical, 12)
-        .with_field(PileupField::NDiff, 16)
+            .with_field(PileupField::Reference, 0)
+            .with_field(PileupField::Position, 1)
+            .with_field(PileupField::Strand, 5)
+            .with_field(PileupField::ModType, 3)
+            .with_field(PileupField::NMod, 11)
+            .with_field(PileupField::NValidCov, 9)
+            .with_field(PileupField::NCanonical, 12)
+            .with_field(PileupField::NDiff, 16)
     }
 }
 
@@ -123,7 +119,9 @@ impl<R: Read> PileupChunkReader<R> {
                 _ => {}
             }
 
-            if let Ok(parsed_record) = parse_and_validate_pileup_record(&record, self.min_cov, &field_mapping) {
+            if let Ok(parsed_record) =
+                parse_and_validate_pileup_record(&record, self.min_cov, &field_mapping)
+            {
                 parsed_records.push(parsed_record);
             }
         }
@@ -152,7 +150,9 @@ impl<R: Read> PileupChunkReader<R> {
                 _ => {}
             }
 
-            if let Ok(parsed_record) = parse_and_validate_pileup_record(&record, self.min_cov, &field_mapping) {
+            if let Ok(parsed_record) =
+                parse_and_validate_pileup_record(&record, self.min_cov, &field_mapping)
+            {
                 parsed_records.push(parsed_record);
             }
         }
