@@ -1,11 +1,12 @@
 use crate::sequence::Contig;
+use crate::sequence::MethylationThresholds;
 use anyhow::Context;
 use anyhow::Result;
 use seq_io::fasta::{Reader, Record};
 use std::collections::HashMap;
 use std::path::Path;
 
-pub fn read_fasta_file(file_path: &Path) -> Result<HashMap<String, Contig>> {
+pub fn read_fasta_file(file_path: &Path) -> Result<HashMap<String, String>> {
     let mut reader = Reader::from_path(file_path)
         .with_context(|| format!("Error reading fasta file: {}", file_path.display()))?;
 
@@ -20,8 +21,7 @@ pub fn read_fasta_file(file_path: &Path) -> Result<HashMap<String, Contig>> {
         let sequence = String::from_utf8(record.owned_seq())
             .with_context(|| "Error getting fasta record sequence")?;
 
-        let contig: Contig = Contig::new(&id, &sequence);
-        records.insert(id, contig);
+        records.insert(id, sequence);
     }
     Ok(records)
 }

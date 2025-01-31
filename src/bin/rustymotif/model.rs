@@ -8,7 +8,10 @@ pub struct BetaBernoulliModel {
 impl BetaBernoulliModel {
     /// Create a new Beta-Bernoulli model with alpha=1.0, beta=1.0
     pub fn new() -> Self {
-        Self { alpha: 1.0, beta: 1.0 }
+        Self {
+            alpha: 1.0,
+            beta: 1.0,
+        }
     }
 
     pub fn new_with_params(alpha: f64, beta: f64) -> Self {
@@ -33,5 +36,3 @@ impl BetaBernoulliModel {
         (numerator / denominator).sqrt()
     }
 }
-
-

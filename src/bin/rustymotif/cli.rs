@@ -25,6 +25,20 @@ pub struct Cli {
     )]
     pub out: String,
 
+    #[arg(
+        long,
+        default_value = "0.1",
+        help = "Middle threshold for methylation"
+    )]
+    pub middle_threshold: f64,
+
+    #[arg(
+        long,
+        default_value = "0.75",
+        help = "High threshold for methylation"
+    )]
+    pub high_threshold: f64,
+
     #[arg(long, default_value = "10", help = "Window size to search for motifs")]
     pub window_size: usize,
 

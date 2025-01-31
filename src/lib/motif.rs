@@ -1,6 +1,7 @@
 use crate::{iupac::IupacBase, modtype::ModType};
 use anyhow::{Ok, Result};
-
+use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComplementMotif {
     pub sequence: Vec<IupacBase>,
@@ -133,6 +134,24 @@ impl Motif {
         pretty_sequence
     }
 }
+
+impl serde::Serialize for Motif {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = format!(
+            "{}-{}-{}",
+            self.sequence_string(),
+            self.mod_type.to_string(),
+            self.position
+        );
+
+        serializer.serialize_str(&s)
+        
+    }
+}
+
 impl MotifLike for Motif {
     fn sequence_string(&self) -> String {
         self.sequence.iter().map(|b| b.to_string()).collect()
@@ -155,9 +174,8 @@ impl MotifLike for Motif {
             self.position
         )
     }
-
-
 }
+
 
 impl ComplementMotif {
     pub fn new(sequence: &str, mod_type: &str, position: u8) -> Result<Self, anyhow::Error> {
@@ -394,4 +412,7 @@ mod tests {
         let pair = MotifPair::new(forward, reverse);
         assert!(pair.is_err());
     }
+
+    
+    
 }

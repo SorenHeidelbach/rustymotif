@@ -8,10 +8,10 @@ use utils::pileup;
 mod cli;
 mod data;
 mod fasta_reader;
+mod model;
 mod motif_discovery;
 mod search;
 mod sequence;
-mod model;
 fn main() {
     let args = cli::Cli::parse();
     // Set up logging level

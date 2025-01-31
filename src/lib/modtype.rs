@@ -39,12 +39,13 @@ impl ModType {
     }
 }
 
+
 impl fmt::Display for ModType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ModType::FiveMC => write!(f, "5mC, (m)"),
-            ModType::FourMC => write!(f, "4mC, (21839)"),
-            ModType::SixMA => write!(f, "6mA, (a)"),
+            ModType::FiveMC => write!(f, "5mC"),
+            ModType::FourMC => write!(f, "4mC"),
+            ModType::SixMA => write!(f, "6mA"),
         }
     }
 }
@@ -84,9 +85,9 @@ mod tests {
         for mt in vec![ModType::SixMA, ModType::FiveMC, ModType::FourMC] {
             let display = format!("{}", mt);
             let expected = match mt {
-                ModType::SixMA => "6mA, (a)",
-                ModType::FiveMC => "5mC, (m)",
-                ModType::FourMC => "4mC, (21839)",
+                ModType::SixMA => "6mA",
+                ModType::FiveMC => "5mC",
+                ModType::FourMC => "4mC",
             };
             assert_eq!(display, expected)
         }

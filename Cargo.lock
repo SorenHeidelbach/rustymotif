@@ -853,6 +853,7 @@ dependencies = [
  "petgraph 0.7.1",
  "regex",
  "seq_io",
+ "serde",
  "tempfile",
 ]
 
