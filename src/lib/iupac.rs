@@ -1,8 +1,10 @@
 use anyhow::bail;
 use anyhow::Result;
 use std::fmt::Display;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, EnumIter)]
 pub enum IupacBase {
     A,
     C,

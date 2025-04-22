@@ -1,8 +1,9 @@
 use crate::iupac::IupacBase;
 use anyhow::{bail, Result};
+use serde::Serialize;
 use std::{fmt, str::FromStr};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Serialize)]
 pub enum ModType {
     SixMA,
     FiveMC,

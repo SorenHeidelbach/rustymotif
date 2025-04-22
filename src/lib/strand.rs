@@ -1,8 +1,9 @@
 use anyhow::{bail, Result};
 use std::{fmt::Display, str::FromStr};
+use serde::Serialize;
 
 /// Represents the DNA strand of reference.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize)]
 pub enum Strand {
     Positive,
     Negative,
@@ -13,6 +14,7 @@ impl Display for Strand {
         write!(f, "{}", self.to_string())
     }
 }
+
 
 impl Strand {
     pub fn to_string(&self) -> String {

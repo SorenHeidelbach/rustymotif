@@ -5,6 +5,7 @@ use anyhow::Result;
 use atoi;
 use csv::{ByteRecord, ReaderBuilder};
 use log::{debug, info, warn};
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::io::Read;
 
@@ -56,7 +57,7 @@ impl Default for FieldMapping {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PileupRecord {
     pub reference: String,
     pub position: usize,
@@ -66,6 +67,36 @@ pub struct PileupRecord {
     pub n_valid_cov: u32,
     pub n_canonical: u32,
     pub n_diff: u32,
+}
+
+impl PileupRecord {
+    pub fn write_to_file(
+        &self,
+        writer: &mut csv::Writer<std::fs::File>,
+    ) -> Result<()> {
+        let record = vec![
+            self.reference.clone(),
+            self.position.to_string(),
+            ".".to_string(),
+            self.mod_type.to_string().to_string(),
+            ".".to_string(),
+            self.strand.to_string(),
+            ".".to_string(),
+            ".".to_string(),
+            ".".to_string(),
+            self.n_valid_cov.to_string(),
+            ".".to_string(),
+            self.n_mod.to_string(),
+            self.n_canonical.to_string(),
+            ".".to_string(),
+            ".".to_string(),
+            ".".to_string(),
+            self.n_diff.to_string(),
+            ".".to_string(),
+        ];
+        writer.write_record(&record)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

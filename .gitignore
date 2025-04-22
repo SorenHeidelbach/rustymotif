@@ -2,5 +2,6 @@
 target/*
 .vscode
 
+mixedmotif_out
 
 run_default.sh

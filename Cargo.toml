@@ -19,6 +19,9 @@ ordered-float = "4.6.0"
 petgraph = "0.7.1"
 itertools = "0.14.0"
 serde = "1.0.217"
+statrs = "0.18.0"
+strum = "0.27.1"
+strum_macros = "0.27.1"
 
 [lib]
 name = "utils"
@@ -27,6 +30,10 @@ path = "src/lib/lib.rs"
 [[bin]]
 name = "rustymotif"
 path = "src/bin/rustymotif/main.rs"
+
+[[bin]]
+name = "mixedmotif"
+path = "src/bin/mixedmotif/main.rs"
 
 
 [profile.release]
