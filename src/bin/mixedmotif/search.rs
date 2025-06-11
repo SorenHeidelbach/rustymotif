@@ -93,6 +93,8 @@ pub fn motif_search(
         let mut keep_searching = true;
         let mut low_score_motifs = 0;
         while keep_searching {
+            debug!("Searching for motifs of type: {:?}", mod_type);
+            debug!("    Found {} records for motif", records.len());
             let mut motif_graph = MotifGraph::new();
             // add seed motif
             motif_graph.add_node(
@@ -152,7 +154,7 @@ pub fn motif_search(
                     let expanded_motif_records = &records
                         .iter()
                         .filter(|record| {
-                            expanded_motif_locations_set.contains(&record.position)
+                            expanded_motif_locations_set.contains(&record.position) && record.strand == utils::strand::Strand::Positive
                         })
                         .cloned()
                         .collect::<Vec<_>>();
@@ -170,7 +172,7 @@ pub fn motif_search(
                     );
                     expanded_motif_beta_mixture.fit_em_fixed_false(
                         &expanded_motif_records,
-                        1.0,
+                        5.0,
                         100,
                         1e-6
                     )?;

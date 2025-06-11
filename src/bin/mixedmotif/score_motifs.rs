@@ -47,15 +47,24 @@ pub fn score_motif(
         }
     };
     let motif_index_set: HashSet<usize> = motif_index.iter().cloned().collect();
+    let motif_reverse_index = match contig.find_complement_motif_indices(&motif)? {
+        Some(motif_reverse_index) => motif_reverse_index,
+        None => {
+            debug!("Motif ({}) not found in reverse for contig ({})", motif.as_pretty_string(), contig.reference);
+            return Ok(None);
+        }
+    };
+    let motif_reverse_index_set: HashSet<usize> = motif_reverse_index.iter().cloned().collect();
     
     debug!("Getting records for motif");
     let motif_records = records
         .iter()
         .filter(|record| {
-            motif_index_set.contains(&record.position)
+            motif_index_set.contains(&record.position) && record.strand == utils::strand::Strand::Positive
         })
         .cloned()
         .collect::<Vec<_>>();
+
     if motif_records.is_empty() {
         debug!("No records found for motif");
         return Ok(None);
@@ -79,7 +88,7 @@ pub fn score_motif(
         seed_node_beta.clone(),
         0.05,
     );
-    beta_mixture_model.fit_em_fixed_false(&motif_records, 1.0, 100, 1e-6)?;
+    beta_mixture_model.fit_em_fixed_false(&motif_records, 2.0, 100, 1e-6)?;
     debug!("Mean of motif Beta: {:?}", beta_mixture_model.true_model.mean());
     debug!("Standard deviuation of motyif Beta: {:?}", beta_mixture_model.true_model.standard_deviation());
 

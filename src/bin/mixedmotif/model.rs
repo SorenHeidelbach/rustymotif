@@ -250,41 +250,10 @@ impl BetaMixture {
                 };
                 
                 let log_term_true = self.pi.ln() + log_p_true;
-                if log_term_true.is_infinite() {
-                    warn!("log_term_true is infinite for degree: {}", degree);
-                }
-                if log_term_true.is_nan() {
-                    warn!("log_term_true is NaN for degree: {}", degree);
-                }
-
                 let log_term_false = (1.0 - self.pi).ln() + log_p_false + log_penalty;
-                if log_term_false.is_infinite() {
-                    warn!("log_term_false is infinite for degree: {}", degree);
-                }
-                if log_term_false.is_nan() {
-                    warn!("log_term_false is NaN for degree: {}", degree);
-                }
                 let log_mix = log_sum_exp(log_term_true, log_term_false);
-                if log_mix.is_infinite() {
-                    warn!("log_mix is infinite for degree: {}", degree);
-                }
-                if log_mix.is_nan() {
-                    warn!("log_mix is NaN for degree: {}", degree);
-                }
                 let log_responsibility = log_term_true - log_mix;
-                if log_responsibility.is_infinite() {
-                    warn!("log_responsibility is infinite for degree: {}", degree);
-                }
-                if log_responsibility.is_nan() {
-                    warn!("log_responsibility is NaN for degree: {}", degree);
-                }
                 let responsibility = log_responsibility.exp();
-                if responsibility.is_infinite() {
-                    warn!("responsibility is infinite for degree: {}", degree);
-                }
-                if responsibility.is_nan() {
-                    warn!("responsibility is NaN for degree: {}", degree);
-                }
                 responsibilities.push((degree, responsibility));
 
                 log_lik_true += log_mix;
@@ -371,11 +340,14 @@ fn weighted_beta_fit_degrees_with_prior(degrees: &[f64], weights: &[f64], prior_
 }
 
 fn log_sum_exp(a: f64, b: f64) -> f64 {
-    if a.is_infinite() && b.is_infinite() {
-        return f64::NEG_INFINITY;
+    match (a, b) {
+        (x, y) if x.is_infinite() && x.is_sign_negative() => y,
+        (x, y) if y.is_infinite() && y.is_sign_negative() => x,
+        (x, y) => {
+            let max_val = x.max(y);
+            max_val + ((x - max_val).exp() + (y - max_val).exp()).ln()
+        }
     }
-    let max_val = a.max(b);
-    max_val + ( (a - max_val).exp() + (b - max_val).exp() ).ln()
 }
 // --- EM Algorithm for Fitting Only the True Beta Component ---
 //
@@ -433,7 +405,7 @@ pub fn fit_true_beta_model_em(
             // Add penalty to the false component to downweight it.
             let log_penalty = false_penalty.ln(); // positive constant
             let log_term_true = pi.ln() + log_p_true;
-            let log_term_false = (1.0 - pi).ln() + log_p_false + log_penalty;
+            let log_term_false = (1.0 - pi).ln() + log_p_false - log_penalty;
             let log_mix = log_sum_exp(log_term_true, log_term_false);
             let mix = log_mix.exp(); // Stable mixture probability.
             let log_r = log_term_true - log_mix;
