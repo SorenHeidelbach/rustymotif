@@ -1,8 +1,7 @@
 // src/cli.rs
 use clap::{Parser, ValueEnum};
-/// A CLI tool that processes a file with optional numeric parameters.
 #[derive(Parser, Debug)]
-#[command(name = "mixedmotif", version, about = "Methylation Motif Pairs")]
+#[command(name = "motif_summary", version, about = "Summarise a pileup file over nanomotif motifs")]
 pub struct Cli {
     #[arg(
         long,
@@ -39,22 +38,27 @@ pub struct Cli {
     #[arg(
         long,
         short='o',
-        default_value = "captured_mthylation",
+        default_value = "motif_summary",
         value_name = "OUT",
-        help = "Output file path"
+        help = "Output path"
     )]
     pub out: String,
 
-
-    #[arg(long, short, default_value = "5", help = "Number of threads to use")]
-    pub threads: u32,
+    #[arg(
+        long,
+        value_name = "summary_min_cov",
+        default_value = "5",
+        help = "Minimum coverage for summary counts"
+    )]
+    pub summary_min_cov: u32,
 
     #[arg(
         long,
-        default_value = "100",
-        help = "Number of contigs to load and process at once"
+        value_name = "summary_min_methylation",
+        default_value = "0.7",
+        help = "Minimum methylation level for summary counts"
     )]
-    pub batch_size: u32,
+    pub summary_min_methylation: f32,
 
     #[arg(
         value_enum,

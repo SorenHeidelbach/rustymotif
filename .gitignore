@@ -5,3 +5,11 @@ target/*
 mixedmotif_out
 
 run_default.sh
+
+
+logs
+
+motif_summary_out*
+
+run_def*
+Cargo.lock

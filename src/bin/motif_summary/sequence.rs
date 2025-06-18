@@ -48,10 +48,11 @@ impl Contig {
     }
 
     pub fn find_complement_motif_indices(&self, motif: &Motif) -> Result<Option<Vec<usize>>> {
-        let re = Regex::new(&motif.reverse_complement()?.regex()?)?;
+        let complement_motif = &motif.reverse_complement()?;
+        let re = Regex::new(&complement_motif.regex()?)?;
         let mut indices = Vec::new();
         re.find_iter(&self.sequence)
-            .for_each(|m| indices.push(m.start() + motif.position as usize));
+            .for_each(|m| indices.push(m.start() + complement_motif.position as usize));
         Ok((!indices.is_empty()).then_some(indices))
     }
 
