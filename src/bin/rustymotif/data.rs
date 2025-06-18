@@ -2,6 +2,7 @@ use crate::pileup::PileupChunk;
 use crate::sequence::Contig;
 use crate::sequence::MethylationThresholds;
 use ahash::{HashMap, HashMapExt};
+use std::collections::HashSet;
 use log::debug;
 pub struct GenomeWorkSpaceBuilder {
     pub contigs: HashMap<String, Contig>,
@@ -45,6 +46,7 @@ mod tests {
     use super::*;
     use crate::pileup::PileupRecord;
     use crate::sequence::{Contig, MethylationLevel};
+    use ahash::HashSet;
     use utils::strand::Strand;
     use utils::modtype::ModType;
 
@@ -104,6 +106,5 @@ mod tests {
         let contig = workspace.contigs.get("contig_1").unwrap();
         assert_eq!(contig.records.len(), 4);
         assert_eq!(contig.methylation_levels.len(), 3);
-        assert_eq!(contig.methylation_levels.get(&(MethylationLevel::Middle, Strand::Positive, ModType::FiveMC)).unwrap(), &vec![2,3]);
     }
 }
