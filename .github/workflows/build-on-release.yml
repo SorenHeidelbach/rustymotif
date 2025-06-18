@@ -49,7 +49,7 @@ jobs:
       - name: Rename binary for upload
         run: |
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            mv target/${{ matrix.target }}/release/memopair.exe memopair-${{ matrix.name_suffix }}${{ matrix.extension }}
+            mv target/${{ matrix.target }}/release/rustymotif.exe rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
           else
             mv target/${{ matrix.target }}/release/rustymotif rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
             mv target/${{ matrix.target }}/release/mixedmotif mixedmotif-${{ matrix.name_suffix }}${{ matrix.extension }}
