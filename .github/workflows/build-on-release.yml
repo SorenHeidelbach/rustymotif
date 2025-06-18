@@ -51,15 +51,17 @@ jobs:
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             mv target/${{ matrix.target }}/release/memopair.exe memopair-${{ matrix.name_suffix }}${{ matrix.extension }}
           else
-            mv target/${{ matrix.target }}/release/memopair memopair-${{ matrix.name_suffix }}${{ matrix.extension }}
+            mv target/${{ matrix.target }}/release/rustymotif rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
+            mv target/${{ matrix.target }}/release/mixedmotif mixedmotif-${{ matrix.name_suffix }}${{ matrix.extension }}
+            mv target/${{ matrix.target }}/release/motif_summary motif_summary-${{ matrix.name_suffix }}${{ matrix.extension }}
           fi
         shell: bash
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: memopair-${{ matrix.name_suffix }}
-          path: memopair-${{ matrix.name_suffix }}${{ matrix.extension }}
+          name: rustymotif-${{ matrix.name_suffix }}
+          path: rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
 
   release:
     runs-on: ubuntu-latest
@@ -69,7 +71,7 @@ jobs:
       - name: Download Binaries
         uses: actions/download-artifact@v4
         with:
-          pattern: memopair-*
+          pattern: rustymotif-*
           merge-multiple: true
           run-id: ${{ github.event.workflow_run_id }}
       - name: Create GitHub Release
@@ -78,8 +80,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           release_name: "Release ${{ github.ref_name }}"
           files: |
-            memopair-linux
-            memopair-windows.exe
-            memopair-macos
+            rustymotif-linux
+            rustymotif-windows.exe
+            rustymotif-macos
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
