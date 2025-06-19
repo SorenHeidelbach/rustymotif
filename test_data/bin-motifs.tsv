@@ -1,0 +1,10 @@
+bin	motif	mod_position	mod_type	n_mod	n_nomod	motif_type	motif_complement	mod_position_complement	n_mod_complement	n_nomod_complement
+bin1	GAGNNNNNTCTT	1	a	315	24	bipartite	AAGANNNNNCTC	3	301	38
+bin1	GATC	1	a	39995	59	palindrome	GATC	1	39995	59
+bin1	CCWGG	1	m	24416	750	palindrome	CCWGG	1	24416	750
+bin1	GCCGGC	2	m	620	2	palindrome	GCCGGC	2	620	2
+bin1	GCCGGC	2	m	620	2	palindrome	GCCGGC	5	601	21
+bin1	GCCGGC	5	m	601	21	palindrome	GCCGGC	2	620	2
+bin1	GCCGGC	5	m	601	21	palindrome	GCCGGC	5	601	21
+bin1	TSCGGA	2	m	1878	2995	non-palindrome				
+bin2	GCANNNNNNNTGC	2	a	908	13	bipartite	GCANNNNNNNTGC	2	908	13
