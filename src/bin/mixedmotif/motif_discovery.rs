@@ -49,150 +49,28 @@ pub fn rustymotif(args: &cli::Cli) -> Result<()> {
                 }
                 let genome_work_space = builder.build();
 
-                let mut motifs = Vec::new();
-                motifs.push(
-                    motif::Motif::new(
-                        "RGATCY",
-                        "4mC",
-                        4,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "GATC",
-                        "6mA",
-                        1,
-                    )?
-                );
-                
-                motifs.push(
-                    motif::Motif::new(
-                        "A",
-                        "6mA",
-                        0,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "GA",
-                        "6mA",
-                        1,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "CGA",
-                        "6mA",
-                        2,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "TCGA",
-                        "6mA",
-                        3,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "CTCGA",
-                        "6mA",
-                        4,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "TCGAG",
-                        "6mA",
-                        3,
-                    )?
-                );
-                motifs.push(
-                    motif::Motif::new(
-                        "CTCGAG",
-                        "6mA",
-                        4,
-                    )?
-                );
-                // Write motif_beta_true, motif_mixture, motif_log_likelihood, motif_log_likelihood_false to a file
-                let output = outdir.join(format!("mixed_model_of_motifs.tsv"));
-                let output_string = output.to_str()
-                    .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))?;
-                
-                let result_file = File::create(output_string)?;
-                let mut result_writer = WriterBuilder::new()
-                    .delimiter(b'\t')
-                    .has_headers(true)
-                    .from_writer(result_file);
-                result_writer.write_record(&[
-                    "contig_id",
-                    "motif",
-                    "beta_methylated_shape1",
-                    "beta_methylated_shape2",
-                    "beta_unmethylated_shape1",
-                    "beta_unmethylated_shape2",
-                    "mixture",
-                    "log_likelihood_methylated",
-                    "log_likelihood_unmethylated",
-                ])?;
-                for ( contig_id, contig) in genome_work_space.contigs.iter() {
-                    for motif in motifs.iter() {
-                        debug!("Searching for motif: {}", motif.as_pretty_string());
-                        debug!("Contig ID: {}", contig_id);
-                        // Make output String
-                        let output = outdir.join(format!("{}_motif_{}.tsv", contig_id, motif.as_pretty_string()));
-                        let output_string = output.to_str()
-                            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))?;
-                        
-                        let motif_mixture_model = match score_motifs::score_motif(
-                            motif.clone(),
-                            contig.clone(),
-                            Some(output_string.to_string()),
-                        )? {
-                            Some(motif_mixture_model) => {
-                                debug!("Motif found in contig: {}", contig_id);
-                                motif_mixture_model
-                            }
-                            None => {
-                                debug!("Motif not found in contig: {}", contig_id);
-                                continue;
-                            }
-                        };
-                        debug!("Motif search complete for contig: {}", contig_id);
-
-                        let (log_lik_true, log_lik_false) = motif_mixture_model.log_likelihoods(
-                            &contig.get_by_mod_type(motif.mod_type.clone()),
-                        );
-                        result_writer.write_record(&[
-                            contig_id,
-                            &motif.as_pretty_string(),
-                            &motif_mixture_model.true_model.alpha.to_string(),
-                            &motif_mixture_model.true_model.beta.to_string(),
-                            &motif_mixture_model.false_model.alpha.to_string(),
-                            &motif_mixture_model.false_model.beta.to_string(),
-                            &motif_mixture_model.pi.to_string(),
-                            &log_lik_true.to_string(),
-                            &log_lik_false.to_string(),
-                        ])?;
-
-
-
-                        
-                    }
-                }
-                result_writer.flush()?;
-
                 for (refenrece_id, contig) in genome_work_space.contigs.into_iter() {
                     println!("Processing contig: {}", refenrece_id);
                     let identified_motifs = search::motif_search(
                         contig,
                         10,
-                        50,
+                        20,
                         0.01,
                         Some("intermediate_motifs.tsv"),
                     )?;
                     for motif in identified_motifs {
-                        motif_writer.serialize(motif)?;
+                        motif_writer.write_record(&[
+                            &motif.contig_id,
+                            &motif.motif.as_pretty_string(),
+                            &motif.motif_seq,
+                            &motif.motif_mod_type,
+                            &motif.motif_mod_position.to_string(),
+                            &motif.model.pi.to_string(),
+                            &motif.model.true_model.alpha.to_string(),
+                            &motif.model.true_model.beta.to_string(),
+                            &motif.model.false_model.alpha.to_string(),
+                            &motif.model.false_model.beta.to_string(),
+                        ])?;
                         motif_writer.flush()?;
                     }
 

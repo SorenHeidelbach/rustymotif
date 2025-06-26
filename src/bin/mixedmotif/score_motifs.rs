@@ -69,6 +69,16 @@ pub fn score_motif(
         debug!("No records found for motif");
         return Ok(None);
     }
+
+    let n_records_above_min_thresh = motif_records
+        .iter()
+        .filter(|record| (record.n_mod as f64 / record.n_valid_cov as f64) > 0.2)
+        .count();
+    if n_records_above_min_thresh < 10 {
+        debug!("Skipping motif {} in contig {}: not enough records above threshold", motif.as_pretty_string(), contig.reference);
+        return Ok(None);
+    }
+
     debug!("    Found {} records for motif", motif_records.len());
     if let Some(write_motif_records) = write_motif_records {
         debug!("    Writing motif records to file");

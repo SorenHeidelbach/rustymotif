@@ -180,6 +180,7 @@ impl BetaMixture {
             weighted_sum += weight * value;
         }
         if weight_sum == 0.0 {
+            debug!("No weights provided, cannot fit Beta distribution.");
             return None;
         }
         let mean = weighted_sum / weight_sum;
@@ -190,11 +191,13 @@ impl BetaMixture {
         }
         weighted_var /= weight_sum;
         if weighted_var < 1e-12 {
+            debug!("Variance is too small, cannot fit Beta distribution.");
             return None;
         }
         
         let common = mean * (1.0 - mean) / weighted_var - 1.0;
         if common <= 0.0 {
+            debug!("Common term is non-positive, cannot fit Beta distribution.");
             return None;
         }
 
@@ -217,8 +220,7 @@ impl BetaMixture {
     ) -> Result<f64> {
         let mut log_lik_true_old:f64;
         let mut log_lik_true:f64 = 0.0;
-        let log_penalty = false_penalty.ln();
-        let epsilon = 1e-6;
+        let epsilon = 1e-12;
     
         for _ in 0..max_iter {
             let mut responsibilities = Vec::new();
@@ -250,6 +252,8 @@ impl BetaMixture {
                 };
                 
                 let log_term_true = self.pi.ln() + log_p_true;
+                let penalty = 1.0 / (1.0 + ((degree - 0.25) * 10.0).exp());
+                let log_penalty = penalty.ln();
                 let log_term_false = (1.0 - self.pi).ln() + log_p_false + log_penalty;
                 let log_mix = log_sum_exp(log_term_true, log_term_false);
                 let log_responsibility = log_term_true - log_mix;

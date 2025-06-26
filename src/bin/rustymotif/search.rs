@@ -84,8 +84,10 @@ pub fn motif_search(
         {
             let methylated_motif_seqs_fwd =
                 contig.extract_subsequences(&methylated_motif_indices_fwd, window_size)?;
-            let methylated_motif_set_fwd = EqualLengthDNASet::new(methylated_motif_seqs_fwd)?;
-            methylated_motif_seqs.add_other(&methylated_motif_set_fwd)?;
+            if !methylated_motif_seqs_fwd.is_empty() {
+                let methylated_motif_set_fwd = EqualLengthDNASet::new(methylated_motif_seqs_fwd)?;
+                methylated_motif_seqs.add_other(&methylated_motif_set_fwd)?;
+            }
         } else {
             debug!(
                 "No methylated positions found on the forward strand for mod type: {:?}",
@@ -93,14 +95,13 @@ pub fn motif_search(
             );
         }
 
-        if let Some(methylated_motif_indices_rev) =
-            contig.methylated_motif_positions(&seed_motif, MethylationLevel::High, Strand::Negative)?
+        if let Some(methylated_motif_indices_rev) = contig.methylated_motif_positions(&seed_motif, MethylationLevel::High, Strand::Negative)?
         {
-            let methylated_motif_seqs_rev =
-                contig.extract_subsequences(&methylated_motif_indices_rev, window_size)?;
-            let methylated_motif_set_rev =
-                EqualLengthDNASet::new(methylated_motif_seqs_rev)?.reverse_complement();
-            methylated_motif_seqs.add_other(&methylated_motif_set_rev)?;
+            let methylated_motif_seqs_rev = contig.extract_subsequences(&methylated_motif_indices_rev, window_size)?;
+            if ! methylated_motif_seqs_rev.is_empty() {
+                let methylated_motif_set_rev = EqualLengthDNASet::new(methylated_motif_seqs_rev)?.reverse_complement();
+                methylated_motif_seqs.add_other(&methylated_motif_set_rev)?;
+            }
         } else {
             debug!(
                 "No methylated positions found on the reverse strand for mod type: {:?}",
@@ -175,7 +176,7 @@ pub fn motif_search(
 
                 for (i, kl_divergence_value) in kl_divergence.into_iter().enumerate() {
                     if kl_divergence_value > min_kl_divergence {
-                        let motif_growth_index = node.motif.position as usize - window_size + i;
+                        let motif_growth_index = node.motif.position as i8 - window_size as i8 + i as i8;
 
                         let valid_bases =
                             pssm_methylated.bases_above_freq(i as u8, min_base_probability);
@@ -184,7 +185,7 @@ pub fn motif_search(
                             // Create new motif
                             let base_str = base.into_iter().map(|b| b.to_string()).collect();
                             let mut new_motif = node.motif.clone();
-                            new_motif.grow_motif_at(motif_growth_index as i8, base_str)?;
+                            new_motif.grow_motif_at(motif_growth_index, base_str)?;
 
                             let mut new_motif_counts =
                                 MotifMethylationCount::new(new_motif.clone());

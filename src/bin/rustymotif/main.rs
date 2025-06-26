@@ -4,6 +4,7 @@ use log::info;
 use std::path::Path;
 use utils::motif;
 use utils::pileup;
+use anyhow::Result;
 
 mod cli;
 mod data;
@@ -12,7 +13,7 @@ mod model;
 mod motif_discovery;
 mod search;
 mod sequence;
-fn main() {
+fn main() -> Result<()> {
     let args = cli::Cli::parse();
     // Set up logging level
     match args.verbosity {
@@ -41,8 +42,7 @@ fn main() {
     }
 
     // Run the main function
-    match motif_discovery::rustymotif(&args) {
-        Ok(_) => info!("Finished running motif methylation state"),
-        Err(e) => panic!("Error running motif methylation state: {}", e),
-    }
+    motif_discovery::rustymotif(&args)?;
+    info!("Finished motif discovery");
+    Ok(())
 }

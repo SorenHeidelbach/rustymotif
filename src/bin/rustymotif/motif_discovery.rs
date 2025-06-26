@@ -8,6 +8,7 @@ use csv::{WriterBuilder};
 
 pub fn rustymotif(args: &cli::Cli) -> Result<()> {
     let global_timer = Instant::now();
+    info!("Loading reference file: {}", args.reference);
     let reference_file = Path::new(&args.reference);
     let reference = fasta_reader::read_fasta_file(reference_file)
         .map_err(|e| anyhow::anyhow!("Error reading reference file: {}", e))?;

@@ -57,8 +57,10 @@ pub fn motif_search(
                     "motif_mod_position",
                     "methylated_beta_alpa",
                     "methylated_beta_beta",
+                    "methylated_beta_mean",
                     "non_methylated_beta_alpha",
                     "non_methylated_beta_beta",
+                    "non_methylated_beta_mean",
                     "methylated_beta_pi",
                     "score",
                 ],
@@ -77,24 +79,43 @@ pub fn motif_search(
         )?;
         let mut records = contig.get_by_mod_type(mod_type.clone());
 
-        let seed_node_beta = Beta::from_data(&records);
+        let mut seed_node_beta = Beta::from_data(&records);
+        if seed_node_beta.beta < 1.1 {
+            debug!("Seed beta is too low, setting to 1.1");
+            // Ensure the seed beta is not too low, otherwise the the 
+            // beta mixture model will not converge properly.
+            // as highly methylated position are too likely under the false model.
+            seed_node_beta.beta = 1.1;
+        }
         let mut seed_model = BetaMixture::new(
-            Beta::new(5.0, 2.0),
+            Beta::new(10.0, 1.0),
             seed_node_beta.clone(),
-            0.05,
+            0.01,
         );
-        seed_model.fit_em_fixed_false(
+        match seed_model.fit_em_fixed_false(
             &records,
             1.0,
-            100,
-            1e-6
-        )?;
+            500,
+            1e-9
+        ) {
+            Ok(_) => {
+                debug!("Seed model fitted successfully");
+            }
+            Err(e) => {
+                debug!("Failed to fit seed model: {}", e);
+                continue;
+            }
+        }
 
         let mut keep_searching = true;
         let mut low_score_motifs = 0;
         while keep_searching {
             debug!("Searching for motifs of type: {:?}", mod_type);
             debug!("    Found {} records for motif", records.len());
+            if records.len() < 50 {
+                debug!("Not enough records to search for motifs, skipping");
+                break;
+            }
             let mut motif_graph = MotifGraph::new();
             // add seed motif
             motif_graph.add_node(
@@ -115,8 +136,12 @@ pub fn motif_search(
             let mut rounds_since_best_score = 0;
 
             while let Some(node) = priority_que.pop() {
+                debug!("Expanding motif: {:15} | Mixing: {:15.4} | Beta mean: {:15.4}", node.motif.as_pretty_string(), 
+                    node.model.pi, 
+                    node.model.true_model.mean());
                 rounds_since_best_score += 1;
                 let mut expanded_motifs = Vec::new();
+
                 // Expand motif
                 for iupac in IupacBase::iter().take(4) {
                     let mut expanded_motif = node.motif.clone();
@@ -129,53 +154,89 @@ pub fn motif_search(
                 }
                 for expanded_motif in expanded_motifs {
                     if motif_graph.check_node(&expanded_motif) {
-                        debug!("Expanded motif already in graph, skipping");
+                        // debug!("{}, motif already in graph, skipping", expanded_motif.as_pretty_string());
                         continue;
                     }
-                    // Expanded motif locations
+                    // Get motif locations for forward strand
                     let expanded_motif_locations = match contig.find_motif_indices(&expanded_motif.clone())? {
                         Some(locations) => {
-                            if locations.is_empty() {
-                                continue;
-                            }
+                            if locations.is_empty() {continue;}
                             locations
                         }
-                        None => {
-                            continue;
-                        }
-                        
+                        None => {continue;}
                     };
-                    let expanded_motif_locations_set: HashSet<_> = expanded_motif_locations
+                    let expanded_motif_locations_set_fwd: HashSet<_> = expanded_motif_locations
+                        .iter().cloned().collect();
+                    
+                    // Get motif locations for reverse strand
+                    let expanded_motif_locations_rev = match contig.find_complement_motif_indices(&expanded_motif.clone())? {
+                        Some(locations) => {
+                            if locations.is_empty() {continue;}
+                            locations
+                        }
+                        None => {continue;}
+                    };
+                    let expanded_motif_locations_set_rev: HashSet<_> = expanded_motif_locations_rev
                         .iter().cloned().collect();
                     
                     
-
                     // Get the records for the expanded motif
                     let expanded_motif_records = &records
                         .iter()
                         .filter(|record| {
-                            expanded_motif_locations_set.contains(&record.position) && record.strand == utils::strand::Strand::Positive
+                            (expanded_motif_locations_set_fwd.contains(&record.position) && record.strand == utils::strand::Strand::Positive) ||
+                            (expanded_motif_locations_set_rev.contains(&record.position) && record.strand == utils::strand::Strand::Negative)
                         })
                         .cloned()
                         .collect::<Vec<_>>();
 
+
                     if expanded_motif_records.len() < 10 {
-                        debug!("Too few records found for expanded motif");
+                        // debug!("Too few records found for {}", expanded_motif.as_pretty_string());
+                        motif_graph.add_node(
+                            expanded_motif.clone(),
+                            0.0,
+                            0.0,
+                            BetaMixture::new(
+                                Beta::new(2.0, 2.0),
+                                seed_node_beta.clone(),
+                                0.05,
+                            )
+                        );
+                        continue;
+                    }
+                    if expanded_motif_records
+                        .iter()
+                        .filter(|record| (record.n_mod as f64 / record.n_valid_cov as f64) > 0.2)
+                        .count() < 10 {
+                        // debug!("Too few records with any methylation for {}", expanded_motif.as_pretty_string());
+                        motif_graph.add_node(
+                            expanded_motif.clone(),
+                            0.0,
+                            0.0,
+                            BetaMixture::new(
+                                Beta::new(2.0, 2.0),
+                                seed_node_beta.clone(),
+                                0.05,
+                            )
+                        );
                         continue;
                     }
 
                     // fit new beta model
-                    let mut expanded_motif_beta_mixture = BetaMixture::new(
-                        Beta::new(5.0, 2.0),
-                        seed_node_beta.clone(),
-                        0.05,
-                    );
-                    expanded_motif_beta_mixture.fit_em_fixed_false(
+                    let mut expanded_motif_beta_mixture = node.model.clone();
+                    match expanded_motif_beta_mixture.fit_em_fixed_false(
                         &expanded_motif_records,
-                        5.0,
+                        1.0,
                         100,
                         1e-6
-                    )?;
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            debug!("Failed to fit expanded motif model: {}", e);
+                            continue;
+                        }
+                    }
 
                     
 
@@ -204,8 +265,10 @@ pub fn motif_search(
                             expanded_motif.position,
                             expanded_motif_beta_mixture.true_model.alpha,
                             expanded_motif_beta_mixture.true_model.beta,
+                            expanded_motif_beta_mixture.true_model.mean().to_string(),
                             expanded_motif_beta_mixture.false_model.alpha,
                             expanded_motif_beta_mixture.false_model.beta,
+                            expanded_motif_beta_mixture.false_model.mean().to_string(),
                             expanded_motif_beta_mixture.pi,
                             expanded_motif_score,
                         );
@@ -226,14 +289,6 @@ pub fn motif_search(
                 // Grow current motif
 
                 let best_motif = motif_graph.highest_scoring_node().unwrap();
-                info!(
-                    "Expanded motif: {:<15} score:{:<15.3} | Best: {:<15}, score:{:<15.3}",
-                    node.motif.as_pretty_string(),
-                    node.score,
-                    best_motif.motif.as_pretty_string(),
-                    best_motif.score
-                );
-
                 if rounds_since_best_score > max_branching_with_no_improvement {
                     debug!("No improvement in {max_branching_with_no_improvement} rounds, stopping search");
                     break;
@@ -243,22 +298,34 @@ pub fn motif_search(
             let best_motif = motif_graph.highest_scoring_node().unwrap();
             // filter away records at motif indices
             debug!("Removing motif locations from records");
-            let best_motif_locations = match contig.find_motif_indices(&best_motif.motif.clone())? {
+            
+            // Get motif locations for forward strand
+            let best_motif_locations_fwd = match contig.find_motif_indices(&best_motif.motif.clone())? {
                 Some(locations) => {
-                    if locations.is_empty() {
-                        continue;
-                    }
+                    if locations.is_empty() {continue;}
                     locations
                 }
-                None => {
-                    continue;
-                }
-                
+                None => {continue;}
             };
-            let best_motif_locations_set: HashSet<_> = best_motif_locations
+            let best_motif_locations_set_fwd: HashSet<_> = best_motif_locations_fwd
                 .iter().cloned().collect();
+            
+            // Get motif locations for reverse strand
+            let best_motif_locations_rev = match contig.find_complement_motif_indices(&best_motif.motif.clone())? {
+                Some(locations) => {
+                    if locations.is_empty() {continue;}
+                    locations
+                }
+                None => {continue;}
+            };
+            let best_motif_locations_set_rev: HashSet<_> = best_motif_locations_rev
+                .iter().cloned().collect();
+            
+            
+
             records.retain(|record| {
-                !best_motif_locations_set.contains(&record.position)
+                !best_motif_locations_set_fwd.contains(&record.position) &
+                !best_motif_locations_set_rev.contains(&record.position)
             });
             
             if best_score > min_score {
@@ -276,6 +343,12 @@ pub fn motif_search(
                 )?;
                 motif_results.push(motif_result);
             } else {
+                debug!(
+                    "Discarding motif: {:<15} score ({:.3}) < min_score ({:.3})",
+                    best_motif.motif.as_string(),
+                    best_motif.score,
+                    min_score
+                );
                 low_score_motifs += 1;
                 if low_score_motifs > max_low_score_motifs {
                     debug!("Too many low score motifs, stopping search");
@@ -293,14 +366,15 @@ pub fn motif_search(
     Ok(motif_results)
 }
 
+
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct MotifResult {
-    contig_id: String,
-    motif: Motif,
-    motif_seq: String,
-    motif_mod_type: String,
-    motif_mod_position: u8,
-    model: BetaMixture,
+    pub contig_id: String,
+    pub motif: Motif,
+    pub motif_seq: String,
+    pub motif_mod_type: String,
+    pub motif_mod_position: u8,
+    pub model: BetaMixture,
 }
 
 impl MotifResult {

@@ -4,6 +4,7 @@ use log::info;
 use std::path::Path;
 use utils::motif;
 use utils::pileup;
+use anyhow::Result;
 
 mod cli;
 mod data;
@@ -13,7 +14,7 @@ mod motif_discovery;
 mod search;
 mod sequence;
 mod score_motifs;
-fn main() {
+fn main() -> Result<()> {
     let args = cli::Cli::parse();
     // Set up logging level
     match args.verbosity {
@@ -35,15 +36,10 @@ fn main() {
         true => {
             panic!("Output directory already exists");
         }
-        false => match std::fs::create_dir(out_path) {
-            Ok(_) => info!("Created output directory"),
-            Err(e) => panic!("Could not create output directory: {}", e),
-        },
+        false => std::fs::create_dir(out_path)?,
     }
 
     // Run the main function
-    match motif_discovery::rustymotif(&args) {
-        Ok(_) => info!("Finished running motif methylation state"),
-        Err(e) => panic!("Error running motif methylation state: {}", e),
-    }
+    motif_discovery::rustymotif(&args)?;
+    Ok(())
 }
