@@ -50,6 +50,8 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             mv target/${{ matrix.target }}/release/rustymotif.exe rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
+            mv target/${{ matrix.target }}/release/mixedmotif.exe mixedmotif-${{ matrix.name_suffix }}${{ matrix.extension }}
+            mv target/${{ matrix.target }}/release/motif_summary.exe motif_summary-${{ matrix.name_suffix }}${{ matrix.extension }}
           else
             mv target/${{ matrix.target }}/release/rustymotif rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
             mv target/${{ matrix.target }}/release/mixedmotif mixedmotif-${{ matrix.name_suffix }}${{ matrix.extension }}
@@ -62,6 +64,18 @@ jobs:
         with:
           name: rustymotif-${{ matrix.name_suffix }}
           path: rustymotif-${{ matrix.name_suffix }}${{ matrix.extension }}
+
+      - name: Upload binary_mixedmotif
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixedmotif-${{ matrix.name_suffix }}
+          path: mixedmotif-${{ matrix.name_suffix }}${{ matrix.extension }}
+
+      - name: Upload binary_motif_summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: motif_summary-${{ matrix.name_suffix }}
+          path: motif_summary-${{ matrix.name_suffix }}${{ matrix.extension }}
 
   release:
     runs-on: ubuntu-latest
@@ -83,5 +97,11 @@ jobs:
             rustymotif-linux
             rustymotif-windows.exe
             rustymotif-macos
+            mixedmotif-linux
+            mixedmotif-windows.exe
+            mixedmotif-macos
+            motif_summary-linux
+            motif_summary-windows.exe
+            motif_summary-macos
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
