@@ -46,7 +46,7 @@ pub fn motif_search(
             mod_type.to_string(),
             0,
         )?;
-
+        // Create background sequences
         debug!("Creating background sequences");
         let mut background_contig_seqs = EqualLengthDNASet::new_empty(window_size * 2 + 1)?;
 
@@ -76,6 +76,7 @@ pub fn motif_search(
         }
         debug!("Created background sequences");
 
+        // Create methylated sequences
         debug!("Creating methylated sequences");
         let mut methylated_motif_seqs = EqualLengthDNASet::new_empty(window_size * 2 + 1)?;
 
@@ -186,7 +187,8 @@ pub fn motif_search(
                             let base_str = base.into_iter().map(|b| b.to_string()).collect();
                             let mut new_motif = node.motif.clone();
                             new_motif.grow_motif_at(motif_growth_index, base_str)?;
-
+                            
+                            // Score the new motif
                             let mut new_motif_counts =
                                 MotifMethylationCount::new(new_motif.clone());
                             new_motif_counts.update(&contig)?;

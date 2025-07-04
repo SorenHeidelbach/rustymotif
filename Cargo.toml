@@ -22,6 +22,7 @@ serde = "1.0.217"
 statrs = "0.18.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
+rust-htslib =  "0.49.0"
 
 [lib]
 name = "utils"
@@ -39,6 +40,9 @@ path = "src/bin/mixedmotif/main.rs"
 name = "motif_summary"
 path = "src/bin/motif_summary/main.rs"
 
+[[bin]]
+name = "preprocess"
+path = "src/bin/preprocess/main.rs"
 
 [profile.release]
 debug = true

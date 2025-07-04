@@ -7,7 +7,9 @@ use csv::{ByteRecord, ReaderBuilder};
 use log::{debug, info, warn};
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::io::Read;
+use std::io::Read as IoRead;
+use std::str::FromStr;
+use rust_htslib::tbx::{self, Read};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PileupField {
@@ -105,14 +107,14 @@ pub struct PileupChunk {
     pub records: Vec<PileupRecord>,
 }
 
-pub struct PileupChunkReader<R: Read> {
+pub struct PileupChunkReader<R: IoRead> {
     reader: csv::Reader<R>,
     buffer: VecDeque<ByteRecord>,
     min_cov: u32,
     pub eof_reached: bool,
 }
 
-impl<R: Read> PileupChunkReader<R> {
+impl<R: IoRead> PileupChunkReader<R> {
     pub fn new(inner: R, min_cov: u32) -> Self {
         let reader = ReaderBuilder::new()
             .delimiter(b'\t')
@@ -215,6 +217,111 @@ impl<R: Read> PileupChunkReader<R> {
         }
     }
 }
+
+
+
+pub struct PileupTabixReader {
+    pub reader: tbx::Reader,
+    pub min_cov: u32,
+    pub threads: usize,
+}
+
+impl PileupTabixReader {
+    pub fn new(inner: String, min_cov: u32, threads: usize) -> Result<Self> {
+        let mut reader = tbx::Reader::from_path(inner)?;
+        reader.set_threads(threads)
+            .map_err(|e| anyhow!("Failed to set threads for tbx reader: {}", e))?;
+        Ok(Self {
+            reader,
+            min_cov,
+            threads,
+        })
+    }
+    pub fn fetch_contig(&mut self, contig: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let tid = match self.reader.tid(contig) {
+            Ok(tid) => tid,
+            Err(_) => panic!("Could not resolve contig name '{}'", contig),
+        };
+        self.reader.fetch(tid, 0, i32::MAX as u64)
+            .expect("Could not seek");
+        Ok(())
+    }
+
+    pub fn read_all_from_contig(&mut self) -> Option<PileupChunk> {
+        let mut parsed_records = Vec::with_capacity(1_000);
+        let mut buf = Vec::new();
+        
+        let field_mapping = FieldMapping::default();
+        while let Ok(line) = self.reader.read(&mut buf) {
+            if !line {
+                break;
+            } 
+            let fields: Vec<&[u8]> = buf.split(|b| *b == b'\t').collect(); 
+            match parse_and_validate_pileup_record_bytes(&fields, self.min_cov, &field_mapping) {
+                Ok(parsed_record) => parsed_records.push(parsed_record),
+                Err(e) => continue, // Skip invalid records
+            }
+        }
+
+        if parsed_records.is_empty() {
+            return None;
+        }
+
+        Some(PileupChunk {
+            reference: parsed_records[0].reference.clone(),
+            records: parsed_records,
+        })
+    }
+}
+
+
+
+pub fn parse_and_validate_pileup_record_bytes(
+    fields: &[&[u8]],
+    min_cov: u32,
+    mapping: &FieldMapping,
+) -> Result<PileupRecord> {
+    let nvalid_idx = mapping.idx(PileupField::NValidCov).ok_or_else(|| anyhow!("Missing NValidCov field"))?;
+    let n_valid_cov = atoi::atoi(fields[nvalid_idx]).ok_or_else(|| anyhow!("Invalid n_valid_cov"))?;
+    if n_valid_cov < min_cov {
+        return Err(anyhow!("Coverage below minimum threshold"));
+    }
+    let ref_idx = mapping.idx(PileupField::Reference).ok_or_else(|| anyhow!("Missing Reference field"))?;
+    let pos_idx = mapping.idx(PileupField::Position).ok_or_else(|| anyhow!("Missing Position field"))?;
+    let strand_idx = mapping.idx(PileupField::Strand).ok_or_else(|| anyhow!("Missing Strand field"))?;
+    let modtype_idx = mapping.idx(PileupField::ModType).ok_or_else(|| anyhow!("Missing ModType field"))?;
+    let nmod_idx = mapping.idx(PileupField::NMod).ok_or_else(|| anyhow!("Missing NMod field"))?;
+    let ncan_idx = mapping.idx(PileupField::NCanonical).ok_or_else(|| anyhow!("Missing NCanonical field"))?;
+    let ndiff_idx = mapping.idx(PileupField::NDiff).ok_or_else(|| anyhow!("Missing NDiff field"))?;
+
+    let reference = std::str::from_utf8(fields[ref_idx])?.to_string();
+    let position = atoi::atoi(fields[pos_idx]).ok_or_else(|| anyhow!("Invalid position"))?;
+    let strand_str = std::str::from_utf8(fields[strand_idx])?;
+    let strand = strand_str.parse::<Strand>()
+        .map_err(|_| anyhow!("Could not parse pileup strand value"))?;
+    let modtype_str = std::str::from_utf8(fields[modtype_idx])?;
+    let mod_type = modtype_str.parse::<ModType>()
+        .map_err(|_| anyhow!("Could not parse pileup mod_type value"))?;
+
+
+
+    let n_mod = atoi::atoi(fields[nmod_idx]).ok_or_else(|| anyhow!("Invalid n_mod"))?;
+    let n_canonical = atoi::atoi(fields[ncan_idx]).ok_or_else(|| anyhow!("Invalid n_canonical"))?;
+    let n_diff = atoi::atoi(fields[ndiff_idx]).ok_or_else(|| anyhow!("Invalid n_diff"))?;
+
+    Ok(PileupRecord {
+        reference,
+        position,
+        strand,
+        mod_type,
+        n_mod,
+        n_valid_cov,
+        n_canonical,
+        n_diff,
+    })
+}
+
+
 fn parse_and_validate_pileup_record(
     record: &ByteRecord,
     min_cov: u32,
@@ -283,6 +390,13 @@ fn parse_and_validate_pileup_record(
         n_diff,
     })
 }
+
+fn line_to_byterecord(line: &[u8]) -> ByteRecord {
+    let mut record = ByteRecord::new();
+    record.extend(line.split(|b| *b == b'\t'));
+    record
+}
+
 
 #[cfg(test)]
 mod tests {
