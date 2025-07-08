@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -25,10 +25,6 @@ jobs:
             target: x86_64-pc-windows-gnu
             extension: ".exe"
             name_suffix: windows
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            extension: ""
-            name_suffix: macos
 
     steps:
       - name: Check out the repository
@@ -96,12 +92,9 @@ jobs:
           files: |
             rustymotif-linux
             rustymotif-windows.exe
-            rustymotif-macos
             mixedmotif-linux
             mixedmotif-windows.exe
-            mixedmotif-macos
             motif_summary-linux
             motif_summary-windows.exe
-            motif_summary-macos
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
