@@ -109,15 +109,20 @@ impl PileupChunkHashMap {
 
             let n = records.len();
             for i in 0..n {
-                let (start_pos, _, _) = records[i];
+                let (center_pos, _, _) = records[i];
 
-                // Extend window to include all records within window_span
+                // Define a symmetric window: ±window_span
                 let mut j = i;
-                while j < n && records[j].0 - start_pos <= window_span {
-                    j += 1;
+                while j > 0 && center_pos - records[j - 1].0 <= window_span {
+                    j -= 1;
                 }
 
-                let window = &records[i..j];
+                let mut k = i;
+                while k + 1 < n && records[k + 1].0 - center_pos <= window_span {
+                    k += 1;
+                }
+
+                let window = &records[j..=k];
 
                 let high_frac_count = window.iter().filter(|(_, _, rec)| {
                     rec.n_valid_cov > 0 &&
@@ -317,6 +322,41 @@ mod tests {
         }
         map.remove_windows_with_n_high_methylation(5, 0.7, 3);
         assert!(map.len() < 10); // Some records should be removed
+    }
+
+    #[test]
+    fn test_remove_windows_with_high_methylation_close_windows() {
+        let mut map = PileupChunkHashMap::new("contig1".into());
+        // Make sure removed records previous, does not result in donstream not being removed
+        // 1, 2, and 3 should be flagged for removal, but still be present for flagging 9
+        map.add_record(dummy_record(1, Strand::Positive, ModType::FiveMC, 9, 10));
+        map.add_record(dummy_record(2, Strand::Positive, ModType::FiveMC, 9, 10));
+        map.add_record(dummy_record(3, Strand::Positive, ModType::FiveMC, 9, 10));
+        map.add_record(dummy_record(9, Strand::Positive, ModType::FiveMC, 9, 10));
+
+        // High + Low, should not remove
+        map.add_record(dummy_record(16, Strand::Positive, ModType::FiveMC, 9, 10));
+        map.add_record(dummy_record(17, Strand::Positive, ModType::FiveMC, 1, 10));
+
+        // Remove also low methylation records within window
+        map.add_record(dummy_record(50, Strand::Positive, ModType::FiveMC, 9, 10));
+        map.add_record(dummy_record(56, Strand::Positive, ModType::FiveMC, 1, 10));
+        map.add_record(dummy_record(62, Strand::Positive, ModType::FiveMC, 9, 10));
+        
+        map.remove_windows_with_n_high_methylation(6, 0.4, 2);
+        assert_eq!(map.len(), 2); // Some records should be removed
+        assert!(map.get_record(1, Strand::Positive, ModType::FiveMC).is_none());
+        assert!(map.get_record(2, Strand::Positive, ModType::FiveMC).is_none());
+        assert!(map.get_record(3, Strand::Positive, ModType::FiveMC).is_none());
+        assert!(map.get_record(9, Strand::Positive, ModType::FiveMC).is_none());
+
+        assert!(map.get_record(16, Strand::Positive, ModType::FiveMC).is_some());
+        assert!(map.get_record(17, Strand::Positive, ModType::FiveMC).is_some());
+
+        assert!(map.get_record(50, Strand::Positive, ModType::FiveMC).is_none());
+        assert!(map.get_record(56, Strand::Positive, ModType::FiveMC).is_none());
+        assert!(map.get_record(62, Strand::Positive, ModType::FiveMC).is_none());
+        
     }
 
     #[test]

@@ -2,6 +2,8 @@ use crate::{modtype::ModType, strand::Strand};
 use ahash::AHashMap as HashMap;
 use anyhow::anyhow;
 use anyhow::Result;
+use strum::IntoEnumIterator;
+use strum_macros::{EnumIter, ToString};
 use atoi;
 use csv::{ByteRecord, ReaderBuilder};
 use log::{debug, info, warn};
@@ -10,6 +12,88 @@ use std::collections::VecDeque;
 use std::io::Read as IoRead;
 use std::str::FromStr;
 use rust_htslib::tbx::{self, Read};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, EnumIter)]
+pub enum MethylBedFields {
+    Chrom,
+    Start,
+    End,
+    ModCode,
+    Score,
+    Strand,
+    StartCompat,
+    EndCompat,
+    Color,
+    NValidCov,
+    FractionModified,
+    NMod,
+    NCanonical,
+    NOtherMod,
+    NDelete,
+    NFail,
+    NDiff,
+    NNocall, // Placeholder for future use
+}
+
+impl MethylBedFields {
+    pub fn all_as_string() -> Vec<String> {
+        MethylBedFields::iter().map(|f| f.to_string()).collect()
+    }
+}
+
+impl FromStr for MethylBedFields {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "chrom" => Ok(MethylBedFields::Chrom),
+            "start_position" => Ok(MethylBedFields::Start),
+            "end_position" => Ok(MethylBedFields::End),
+            "modified_base_code" => Ok(MethylBedFields::ModCode),
+            "score" => Ok(MethylBedFields::Score),
+            "strand" => Ok(MethylBedFields::Strand),
+            "start_position_compat" => Ok(MethylBedFields::StartCompat),
+            "end_position_compat" => Ok(MethylBedFields::EndCompat),
+            "color" => Ok(MethylBedFields::Color),
+            "Nvalid_cov" => Ok(MethylBedFields::NValidCov),
+            "fraction_modified" => Ok(MethylBedFields::FractionModified),
+            "Nmod" => Ok(MethylBedFields::NMod),
+            "Ncanonical" => Ok(MethylBedFields::NCanonical),
+            "Nother_mod" => Ok(MethylBedFields::NOtherMod),
+            "Ndelete" => Ok(MethylBedFields::NDelete),
+            "Nfail" => Ok(MethylBedFields::NFail),
+            "Ndiff" => Ok(MethylBedFields::NDiff),
+            "Nnocall" => Ok(MethylBedFields::NNocall), // Placeholder for future use
+            _ => Err(anyhow!("Unknown field: {}", s)),
+        }
+    }
+}
+
+impl ToString for MethylBedFields {
+    fn to_string(&self) -> String {
+        match self {
+            MethylBedFields::Chrom => "chrom".to_string(),
+            MethylBedFields::Start => "start_position".to_string(),
+            MethylBedFields::End => "end_position".to_string(),
+            MethylBedFields::ModCode => "modified_base_code".to_string(),
+            MethylBedFields::Score => "score".to_string(),
+            MethylBedFields::Strand => "strand".to_string(),
+            MethylBedFields::StartCompat => "start_position_compat".to_string(),
+            MethylBedFields::EndCompat => "end_position_compat".to_string(),
+            MethylBedFields::Color => "color".to_string(),
+            MethylBedFields::NValidCov => "Nvalid_cov".to_string(),
+            MethylBedFields::FractionModified => "fraction_modified".to_string(),
+            MethylBedFields::NMod => "Nmod".to_string(),
+            MethylBedFields::NCanonical => "Ncanonical".to_string(),
+            MethylBedFields::NOtherMod => "Nother_mod".to_string(),
+            MethylBedFields::NDelete => "Ndelete".to_string(),
+            MethylBedFields::NFail => "Nfail".to_string(),
+            MethylBedFields::NDiff => "Ndiff".to_string(),
+            MethylBedFields::NNocall => "Nnocall".to_string(), // Placeholder for future use
+
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PileupField {
@@ -72,6 +156,41 @@ pub struct PileupRecord {
 }
 
 impl PileupRecord {
+    pub fn to_bed_fields(&self) -> Result<Vec<String>> {
+        let chrom = self.reference.clone();
+        let start = self.position;
+        let end = start + 1;
+        let mod_code = self.mod_type.to_pileup_code().to_owned();
+        let score = self.n_valid_cov;
+        let strand = self.strand.to_string();
+
+        let fraction_modified = if self.n_valid_cov > 0 {
+            format!("{:.3}", self.n_mod as f32 / self.n_valid_cov as f32)
+        } else {
+            "0.000".to_string()
+        };
+        let bed_fields = vec![
+            chrom,
+            start.to_string(),
+            end.to_string(),
+            mod_code,
+            score.to_string(),
+            strand,
+            start.to_string(),     // compatibility
+            end.to_string(),       // compatibility
+            "255,0,0".to_string(), // BED RGB
+            self.n_valid_cov.to_string(),
+            fraction_modified,
+            self.n_mod.to_string(),
+            self.n_canonical.to_string(),
+            "NA".to_string(),
+            "NA".to_string(),
+            "NA".to_string(),
+            self.n_diff.to_string(),
+            "NA".to_string(),
+        ];
+        Ok(bed_fields)
+    }
     pub fn write_to_file(
         &self,
         writer: &mut csv::Writer<std::fs::File>,

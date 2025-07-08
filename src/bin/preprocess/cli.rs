@@ -27,8 +27,20 @@ pub struct Cli {
         help = "Minimum coverage required to consider a position"
     )]
     pub min_cov: u32,
-    #[arg(long, default_value = "4", help = "Window size to search for motifs")]
+    
+    #[arg(
+        long, 
+        default_value = "8", 
+        help = "Window size to search for motifs")
+    ]
     pub window_size: usize,
+
+    #[arg(
+        long,
+        default_value = "2",
+        help = "Number of high methylation positions required in a window"
+    )]
+    pub n_high_methylation: usize,
 
     #[arg(
         long,
@@ -37,12 +49,6 @@ pub struct Cli {
     )]
     pub fraction_threshold: f32,
 
-    #[arg(
-        long,
-        default_value = "2",
-        help = "Number of high methylation positions required in a window"
-    )]
-    pub n_high_methylation: usize,
 
     #[arg(long, short, default_value = "5", help = "Number of threads to use")]
     pub threads: u32,
@@ -56,6 +62,14 @@ pub struct Cli {
         help = "Verbosity level"
     )]
     pub verbosity: LogLevel,
+
+    #[arg(
+        short,
+        long,
+        default_value = "false",
+        help = "Whether to output bgzipped file"
+    )]
+    pub bgzip: bool,
 
 }
 
