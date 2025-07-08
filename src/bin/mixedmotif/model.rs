@@ -252,7 +252,8 @@ impl BetaMixture {
                 };
                 
                 let log_term_true = self.pi.ln() + log_p_true;
-                let penalty = 1.0 / (1.0 + ((degree - 0.25) * 10.0).exp());
+                // let penalty = 1.0 / (1.0 + ((degree - 0.50) * 10.0).exp());
+                let penalty = false_penalty; // Fixed penalty for false model
                 let log_penalty = penalty.ln();
                 let log_term_false = (1.0 - self.pi).ln() + log_p_false + log_penalty;
                 let log_mix = log_sum_exp(log_term_true, log_term_false);

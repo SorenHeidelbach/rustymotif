@@ -1,5 +1,6 @@
 use crate::pileup::PileupChunk;
 use crate::sequence::Contig;
+use crate::sequence::MethylationThresholds;
 use ahash::{HashMap, HashMapExt};
 use log::debug;
 pub struct GenomeWorkSpaceBuilder {
@@ -43,13 +44,13 @@ mod tests {
     use super::*;
     use crate::pileup::PileupRecord;
     use crate::sequence::{Contig};
-    use utils::strand::Strand;
-    use utils::modtype::ModType;
+    use rustymotif_utils::strand::Strand;
+    use rustymotif_utils::modtype::ModType;
 
     #[test]
     fn test_genome_workspace_builder() {
         let mut builder = GenomeWorkSpaceBuilder::new();
-        let contig = Contig::new("contig_1", "AACG");
+        let contig = Contig::new("contig_1", "AACG", MethylationThresholds::new(0.1, 0.5));
         builder.add_contig(contig.clone());
         let records = PileupChunk {
             reference: "contig_1".to_string(),

@@ -13,22 +13,36 @@ pub struct Cli {
     #[arg(
         long,
         short,
-        default_value = "mixedmotif",
+        default_value = "preprocess_test3.bed",
         value_name = "OUT",
         help = "Output file path"
     )]
     pub out: String,
 
-    #[arg(long, default_value = "4", help = "Window size to search for motifs")]
-    pub window_size: usize,
-
-
+    
+    
     #[arg(
         long,
         default_value = "5",
         help = "Minimum coverage required to consider a position"
     )]
     pub min_cov: u32,
+    #[arg(long, default_value = "4", help = "Window size to search for motifs")]
+    pub window_size: usize,
+
+    #[arg(
+        long,
+        default_value = "0.4",
+        help = "Fraction threshold for high methylation density"
+    )]
+    pub fraction_threshold: f32,
+
+    #[arg(
+        long,
+        default_value = "2",
+        help = "Number of high methylation positions required in a window"
+    )]
+    pub n_high_methylation: usize,
 
     #[arg(long, short, default_value = "5", help = "Number of threads to use")]
     pub threads: u32,

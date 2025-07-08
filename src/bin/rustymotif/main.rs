@@ -2,8 +2,8 @@ use clap::Parser;
 use env_logger::Env;
 use log::info;
 use std::path::Path;
-use utils::motif;
-use utils::pileup;
+use rustymotif_utils::motif;
+use rustymotif_utils::pileup;
 use anyhow::Result;
 
 mod cli;

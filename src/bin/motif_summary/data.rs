@@ -2,7 +2,7 @@ use crate::pileup::PileupChunk;
 use crate::sequence::Contig;
 use crate::pileup::PileupRecord;
 use ahash::{HashMap, HashMapExt, HashSet};
-use utils::{modtype::ModType, motif::Motif, pileup, strand::Strand};
+use rustymotif_utils::{modtype::ModType, motif::Motif, pileup, strand::Strand};
 use log::{debug, info};
 use anyhow::{anyhow, Ok};
 
@@ -196,8 +196,8 @@ mod tests {
     use super::*;
     use crate::pileup::PileupRecord;
     use crate::sequence::{Contig};
-    use utils::strand::Strand;
-    use utils::modtype::ModType;
+    use rustymotif_utils::strand::Strand;
+    use rustymotif_utils::modtype::ModType;
 
     #[test]
     fn test_genome_workspace_builder() {

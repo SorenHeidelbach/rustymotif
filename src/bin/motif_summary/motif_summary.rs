@@ -1,10 +1,10 @@
 use log::{info, debug, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use utils::motif;
-use utils::pileup;
-use utils::modtype::ModType;
-use utils::strand::Strand;
+use rustymotif_utils::motif;
+use rustymotif_utils::pileup;
+use rustymotif_utils::modtype::ModType;
+use rustymotif_utils::strand::Strand;
 use std::time::Instant;
 use std::fs::File;
 use csv::{WriterBuilder};

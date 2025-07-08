@@ -1,10 +1,12 @@
 use crate::{cli, data, fasta_reader, search, sequence, score_motifs};
 use anyhow::{bail, Result};
 use bio::bio_types::annot::contig;
+use itertools::concat;
 use log::{debug, info};
 use std::{fs::File, path::Path, time::Instant};
-use utils::{motif, motif::MotifLike, pileup, strand::Strand};
+use rustymotif_utils::{motif, motif::MotifLike, pileup, strand::Strand};
 use csv::{WriterBuilder};
+use crate::sequence::MethylationThresholds;
 
 pub fn rustymotif(args: &cli::Cli) -> Result<()> {
     let global_timer = Instant::now();
@@ -39,29 +41,35 @@ pub fn rustymotif(args: &cli::Cli) -> Result<()> {
                     let contig_id = &chunk.reference;
                     info!("Processing contig: {}", contig_id);
                     debug!("Adding contig to workspace");
+                    let thresholds = MethylationThresholds::new(0.1, 0.5);
                     let contig = sequence::Contig::new(
                         contig_id,
                         reference.get(contig_id).unwrap().as_str(),
+                        thresholds,
                     );
                     builder.add_contig(contig);
                     debug!("Adding records to contig");
                     builder.push_records(chunk);
                 }
-                let genome_work_space = builder.build();
+                let mut genome_work_space = builder.build();
 
-                for (refenrece_id, contig) in genome_work_space.contigs.into_iter() {
-                    println!("Processing contig: {}", refenrece_id);
+                for (reference_id, mut contig) in genome_work_space.contigs.into_iter() {
+                    println!("Processing contig: {}", reference_id);
+                    contig.populate_methylation_levels();
                     let identified_motifs = search::motif_search(
                         contig,
-                        10,
-                        20,
-                        0.01,
-                        Some("intermediate_motifs.tsv"),
+                        args.max_branching,
+                        args.max_low_score_motifs,
+                        args.min_score,
+                        args.write_intermediate_motifs.as_deref(),
+                        args.window_size,
+                        args.min_kl_divergence,
+                        args.min_base_probability,
                     )?;
                     for motif in identified_motifs {
                         motif_writer.write_record(&[
                             &motif.contig_id,
-                            &motif.motif.as_pretty_string(),
+                            &format!("{}\t{}\t{}", motif.motif_seq, motif.motif_mod_type.as_str(), motif.motif_mod_position),
                             &motif.motif_seq,
                             &motif.motif_mod_type,
                             &motif.motif_mod_position.to_string(),

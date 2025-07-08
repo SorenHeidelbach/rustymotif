@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use bio::bio_types::annot::contig;
 use log::{debug, info};
 use std::{fs::File, path::Path, time::Instant};
-use utils::{motif, motif::MotifLike, pileup, strand::Strand};
+use rustymotif_utils::{motif, motif::MotifLike, pileup, strand::Strand};
 use csv::{WriterBuilder};
 
 pub fn rustymotif(args: &cli::Cli) -> Result<()> {

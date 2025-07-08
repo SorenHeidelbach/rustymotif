@@ -16,7 +16,7 @@ use petgraph::{
     Direction,
 };
 use std::{cmp::Ordering, collections::BinaryHeap};
-use utils::{
+use rustymotif_utils::{
     iupac::IupacBase, modtype::ModType, motif, motif::Motif, motif::MotifLike, pileup,
     strand::Strand,
 };

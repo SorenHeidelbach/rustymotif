@@ -25,12 +25,12 @@ pub struct Cli {
     )]
     pub out: String,
 
-    #[arg(long, default_value = "10", help = "Window size to search for motifs")]
+    #[arg(long, default_value = "4", help = "Window size to search for motifs")]
     pub window_size: usize,
 
     #[arg(
         long,
-        default_value = "0.1",
+        default_value = "0.00001",
         help = "Minimum KL divergence to consider a motif"
     )]
     pub min_kl_divergence: f64,
@@ -60,11 +60,36 @@ pub struct Cli {
         help = "Verbosity level"
     )]
     pub verbosity: LogLevel,
+
+    #[arg(long, default_value = "10")]
+    pub max_low_score_motifs: usize,
+
+    #[arg(long, default_value = "0.1")]
+    pub min_score: f64,
+
+    #[arg(long)]
+    pub write_intermediate_motifs: Option<String>,
+
+    #[arg(long, default_value = "0.10")]
+    pub min_base_probability: f64,
+
+    #[arg(long, default_value = "100")]
+    pub max_branching: usize,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(Debug, clap::ValueEnum, Clone, Copy, PartialEq, Eq)]
 pub enum LogLevel {
-    verbose,
-    normal,
-    silent,
+    Verbose,
+    Normal,
+    Silent,
+}
+
+impl std::fmt::Display for LogLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogLevel::Verbose => write!(f, "verbose"),
+            LogLevel::Normal => write!(f, "normal"),
+            LogLevel::Silent => write!(f, "silent"),
+        }
+    }
 }

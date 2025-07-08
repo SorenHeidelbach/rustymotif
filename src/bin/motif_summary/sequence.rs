@@ -7,9 +7,9 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use regex::Regex;
-use utils::iupac::{self, IupacBase};
-use utils::modtype::ModType;
-use utils::strand::Strand;
+use rustymotif_utils::iupac::{self, IupacBase};
+use rustymotif_utils::modtype::ModType;
+use rustymotif_utils::strand::Strand;
 
 
 #[derive(Debug, Clone)]
@@ -318,8 +318,8 @@ mod tests {
     use crate::motif::Motif;
     use crate::pileup::PileupRecord;
     use bio::bio_types::annot::contig;
-    use utils::modtype::ModType;
-    use utils::strand::Strand;
+    use rustymotif_utils::modtype::ModType;
+    use rustymotif_utils::strand::Strand;
 
     #[test]
     fn test_contig_add_record() {

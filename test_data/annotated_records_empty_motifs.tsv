@@ -1,0 +1,2 @@
+contig_id	mod_type	position	strand	n_mod	n_canonical	n_valid_cov	n_diff	in_motif	motifs
+contig1	6mA	100	+	2	8	10	2	false	

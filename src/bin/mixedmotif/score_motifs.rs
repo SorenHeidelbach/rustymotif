@@ -19,7 +19,7 @@ use petgraph::{
     Direction,
 };
 use std::{cmp::Ordering, collections::BinaryHeap};
-use utils::{
+use rustymotif_utils::{
     iupac::{self, IupacBase}, modtype::ModType, motif::{self, Motif, MotifLike}, pileup,
     strand::Strand,
 }; 
@@ -60,7 +60,7 @@ pub fn score_motif(
     let motif_records = records
         .iter()
         .filter(|record| {
-            motif_index_set.contains(&record.position) && record.strand == utils::strand::Strand::Positive
+            motif_index_set.contains(&record.position) && record.strand == rustymotif_utils::strand::Strand::Positive
         })
         .cloned()
         .collect::<Vec<_>>();

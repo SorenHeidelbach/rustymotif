@@ -7,32 +7,65 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
+use bio::io::fasta;
 use regex::Regex;
-use utils::iupac::{self, IupacBase};
-use utils::modtype::ModType;
-use utils::strand::Strand;
+use rustymotif_utils::iupac::{self, IupacBase};
+use rustymotif_utils::modtype::ModType;
+use rustymotif_utils::strand::Strand;
+use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MethylationLevel {
+    High,
+    Middle,
+    Low,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MethylationThresholds {
+    pub middle: f32,
+    pub high: f32,
+}
+
+impl MethylationThresholds {
+    pub fn new(middle: f32, high: f32) -> Self {
+        Self { middle, high }
+    }
+
+    pub fn default() -> Self {
+        Self {
+            middle: 0.2,
+            high: 0.7,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Contig {
     pub reference: String,
     pub sequence: String,
     pub records: HashMap<(usize, Strand, ModType), PileupRecord>,
+    pub methylation_levels: HashMap<(MethylationLevel, Strand, ModType), Vec<usize>>,
+    pub thresholds: MethylationThresholds,
 }
 
 impl Contig {
-    pub fn new(reference: &str, sequence: &str) -> Self {
+    pub fn new(reference: &str, sequence: &str, methylation_thresholds: MethylationThresholds) -> Self {
         Self {
             reference: reference.to_string(),
             sequence: sequence.to_string(),
             records: HashMap::new(),
+            methylation_levels: HashMap::new(),
+            thresholds: methylation_thresholds,
         }
     }
+
 
     pub fn add_record(&mut self, record: PileupRecord) {
         let key = (record.position, record.strand, record.mod_type);
         self.records.insert(key, record);
     }
+
 
     pub fn add_records(&mut self, mut records: PileupChunk) {
         assert_eq!(records.reference, self.reference, "Reference mismatch");
@@ -55,6 +88,7 @@ impl Contig {
             .for_each(|m| indices.push(m.start() + motif.position as usize));
         Ok((!indices.is_empty()).then_some(indices))
     }
+
 
     pub fn extract_subsequences(&self, indices: &[usize], flank_size: usize) -> Result<Vec<String>> {
         let max_index = self.sequence.len().saturating_sub(1);
@@ -101,7 +135,105 @@ impl Contig {
         }
     }
     
+    pub fn get_records_for_motif(&self, motif: &Motif) -> Result<Vec<&PileupRecord>> {
+        let mut records = vec![];
+        let sequence_chars: Vec<char> = self.sequence.chars().collect();
+        let motif_len = motif.sequence.len();
+        
+        // Search for motif matches considering IUPAC ambiguity codes
+        for i in 0..=(sequence_chars.len().saturating_sub(motif_len)) {
+            let mut matches = true;
+            
+            // Check if the sequence at this position matches the motif
+            for (j, motif_base) in motif.sequence.iter().enumerate() {
+                if let Ok(seq_base) = IupacBase::from_char(sequence_chars[i + j]) {
+                    if !motif_base.contain_other_iupac_base(seq_base) {
+                        matches = false;
+                        break;
+                    }
+                } else {
+                    matches = false;
+                    break;
+                }
+            }
+            
+            if matches {
+                let motif_pos = i + motif.position as usize;
+                // Look for records at this position for the motif's modification type
+                let key = (motif_pos, Strand::Positive, motif.mod_type);
+                if let Some(record) = self.records.get(&key) {
+                    records.push(record);
+                }
+                // Also check negative strand
+                let key = (motif_pos, Strand::Negative, motif.mod_type);
+                if let Some(record) = self.records.get(&key) {
+                    records.push(record);
+                }
+            }
+        }
+        Ok(records)
+    }
+    pub fn remove_records_for_motif(&mut self, motif: &Motif) -> Result<()> {
+        let records = self.get_records_for_motif(motif)?;
+        let keys = records
+            .iter()
+            .map(|record| (record.position, record.strand, record.mod_type))
+            .collect::<HashSet<_>>();
+        drop(records); // Release the borrow on records before modifying self.records
+        for key in keys {
+            self.records.remove(&key);
+        }
+        Ok(())
+    }
+    
+    pub fn classify_methylation_level(&self, n_mod: f32, n_valid_cov: f32) -> MethylationLevel {
+        if n_mod == 0.0  {
+            return MethylationLevel::Low;
+        }
+        if n_valid_cov == 0.0 {
+            return MethylationLevel::Low;
+        }
+        match n_mod / n_valid_cov {
+            n if n >= self.thresholds.high => MethylationLevel::High,
+            n if n >= self.thresholds.middle => MethylationLevel::Middle,
+            _ => MethylationLevel::Low,
+        }
+    }
+    
+    pub fn populate_methylation_levels(&mut self) {
+        self.methylation_levels.clear();
+        for record in self.records.values() {
+            let methylation_level = self.classify_methylation_level(record.n_mod as f32, record.n_valid_cov as f32);
+            self.methylation_levels
+                .entry((methylation_level, record.strand, record.mod_type))
+                .or_default()
+                .push(record.position);
+        }
+    }
+    
+    pub fn methylated_motif_positions(
+        &self,
+        motif: &Motif,
+        methylation_level: MethylationLevel,
+        strand: Strand,
+    ) -> Result<Option<Vec<usize>>> {
+        let Some(motif_indices) = self.find_motif_indices(motif)? else {
+            return Ok(None);
+        };
+    
+        let Some(methylated_indices) = self.methylation_levels.get(&(methylation_level, strand, motif.mod_type)) else {
+            return Ok(None);
+        };
+        let motif_set: HashSet<_> = motif_indices.iter().copied().collect();
+        let methyl_set: HashSet<_> = methylated_indices.iter().copied().collect();
 
+        let intersection = motif_set
+            .intersection(&methyl_set)
+            .copied()
+            .collect::<Vec<_>>();
+
+        Ok(Some(intersection))
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EqualLengthDNASet {
@@ -265,7 +397,7 @@ impl EqualLengthDNASet {
 // A PSSM is a 4 x length matrix of probabilities
 // where each row corresponds to a base (A, C, G, T)
 // and each column corresponds to a position in a sequence
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PSSM {
     pssm: Vec<Vec<f64>>,
     length: usize,
@@ -318,12 +450,12 @@ mod tests {
     use crate::motif::Motif;
     use crate::pileup::PileupRecord;
     use bio::bio_types::annot::contig;
-    use utils::modtype::ModType;
-    use utils::strand::Strand;
+    use rustymotif_utils::modtype::ModType;
+    use rustymotif_utils::strand::Strand;
 
     #[test]
     fn test_contig_add_record() {
-        let mut contig = Contig::new("test", "ACGT");
+        let mut contig = Contig::new("test", "ACGT", MethylationThresholds::default());
         let record = PileupRecord {
             reference: "test".to_string(),
             position: 0,
@@ -344,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_contig_add_records() {
-        let mut contig = Contig::new("test", "ACGT");
+        let mut contig = Contig::new("test", "ACGT", MethylationThresholds::default());
         let records = PileupChunk {
             reference: "test".to_string(),
             records: vec![
@@ -383,8 +515,48 @@ mod tests {
     }
 
     #[test]
+    fn test_contig_populate_methylation_levels() {
+        let mut contig = Contig::new("test", "ACGT", MethylationThresholds::default());
+        let records = PileupChunk {
+            reference: "test".to_string(),
+            records: vec![
+                PileupRecord {
+                    reference: "test".to_string(),
+                    position: 0,
+                    strand: Strand::Positive,
+                    mod_type: ModType::SixMA,
+                    n_mod: 1,
+                    n_valid_cov: 1,
+                    n_canonical: 1,
+                    n_diff: 0,
+                },
+                PileupRecord {
+                    reference: "test".to_string(),
+                    position: 1,
+                    strand: Strand::Positive,
+                    mod_type: ModType::SixMA,
+                    n_mod: 0,
+                    n_valid_cov: 1,
+                    n_canonical: 1,
+                    n_diff: 0,
+                },
+            ],
+        };
+        contig.add_records(records.clone());
+        contig.populate_methylation_levels();
+        assert_eq!(
+            contig.methylation_levels.get(&(MethylationLevel::High, Strand::Positive, ModType::SixMA)),
+            Some(&vec![0])
+        );
+        assert_eq!(
+            contig.methylation_levels.get(&(MethylationLevel::Low, Strand::Positive, ModType::SixMA)),
+            Some(&vec![1])
+        );
+    }
+
+    #[test]
     fn test_contig_find_motif_indices() -> Result<()> {
-        let contig = Contig::new("test", "ACGTACGTACGTACGT");
+        let contig = Contig::new("test", "ACGTACGTACGTACGT", MethylationThresholds::default());
         let motif = Motif::new("ACGT", "6mA", 0).unwrap();
         let indices = contig.find_motif_indices(&motif)?.unwrap();
         assert_eq!(indices, vec![0, 4, 8, 12]);
@@ -392,6 +564,7 @@ mod tests {
         let contig = Contig::new(
             "test",
             "ACCCCGGAGGTCGTACGCCGGATCCGGTACCGGACGTACCGGTCGCCGGAT",
+            MethylationThresholds::default(),
         );
         let motif = Motif::new("CCGGA", "6mA", 4).unwrap();
         let indices = contig.find_motif_indices(&motif)?;
@@ -404,12 +577,12 @@ mod tests {
 
     #[test]
     fn test_contig_extract_subsequences() {
-        let contig = Contig::new("test", "ACGTACGTACGTACGTA");
+        let contig = Contig::new("test", "ACGTACGTACGTACGTA", MethylationThresholds::default());
         let indices = vec![2, 6, 10, 14];
         let subsequences = contig.extract_subsequences(&indices, 2).unwrap();
         assert_eq!(subsequences, vec!["ACGTA", "ACGTA", "ACGTA", "ACGTA"]);
 
-        let contig = Contig::new("test", "ACGTACGTACGTACGT");
+        let contig = Contig::new("test", "ACGTACGTACGTACGT", MethylationThresholds::default());
         let indices = vec![0, 4, 8, 12];
         let subsequences = contig.extract_subsequences(&indices, 3).unwrap();
         assert_eq!(subsequences, vec!["CGTACGT", "CGTACGT", "CGTACGT"]);

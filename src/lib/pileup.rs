@@ -107,6 +107,52 @@ pub struct PileupChunk {
     pub records: Vec<PileupRecord>,
 }
 
+impl PileupChunk {
+    pub fn new(reference: String, records: Vec<PileupRecord>) -> Self {
+        Self {
+            reference,
+            records,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
+
+
+    pub fn filter(&self, filter_fn: impl Fn(&PileupRecord) -> bool) -> Self {
+        let filtered_records: Vec<PileupRecord> = self
+            .records
+            .iter()
+            .filter(|r| filter_fn(r))
+            .cloned()
+            .collect();
+        Self {
+            reference: self.reference.clone(),
+            records: filtered_records,
+        }
+    }
+    pub fn filter_min_cov(
+        &self,
+        min_cov: u32,
+    ) -> Self {
+        self.filter(|r| r.n_valid_cov >= min_cov)
+    }
+
+    pub fn filter_fraction_n_diff(
+        &self,
+        fraction: f32,
+    ) -> Self {
+        self.filter(|r| {
+            if r.n_valid_cov == 0 {
+                return false; // Avoid division by zero
+            }
+            let fraction_n_diff = r.n_diff as f32 / (r.n_diff + r.n_valid_cov) as f32;
+            fraction_n_diff >= fraction
+        })
+    }
+}
+
 pub struct PileupChunkReader<R: IoRead> {
     reader: csv::Reader<R>,
     buffer: VecDeque<ByteRecord>,

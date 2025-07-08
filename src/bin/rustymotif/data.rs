@@ -47,8 +47,8 @@ mod tests {
     use crate::pileup::PileupRecord;
     use crate::sequence::{Contig, MethylationLevel};
     use ahash::HashSet;
-    use utils::strand::Strand;
-    use utils::modtype::ModType;
+    use rustymotif_utils::strand::Strand;
+    use rustymotif_utils::modtype::ModType;
 
     #[test]
     fn test_genome_workspace_builder() {

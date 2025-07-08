@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{BufReader, BufRead};
 use anyhow::Result;
 use csv::{WriterBuilder, Writer};
-use utils::motif::Motif;
+use rustymotif_utils::motif::Motif;
 use log::{info, debug, warn};
 
 use crate::data::AnnotatedPileupRecord;
@@ -229,11 +229,11 @@ mod tests {
     use super::*;
     use crate::data::AnnotatedPileupRecord;
     use crate::pileup::PileupRecord;
-    use utils::strand::Strand;
-    use utils::modtype::ModType;
+    use rustymotif_utils::strand::Strand;
+    use rustymotif_utils::modtype::ModType;
     use std::fs::File;
     use std::io::Write;
-    use utils::motif::Motif;
+    use rustymotif_utils::motif::Motif;
     use std::collections::HashMap;
 
     #[test]
