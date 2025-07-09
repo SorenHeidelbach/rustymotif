@@ -165,9 +165,9 @@ impl PileupRecord {
         let strand = self.strand.to_string();
 
         let fraction_modified = if self.n_valid_cov > 0 {
-            format!("{:.3}", self.n_mod as f32 / self.n_valid_cov as f32)
+            format!("{:.1}", 100.0 * self.n_mod as f32 / self.n_valid_cov as f32)
         } else {
-            "0.000".to_string()
+            "0.0".to_string()
         };
         let bed_fields = vec![
             chrom,
@@ -190,33 +190,6 @@ impl PileupRecord {
             "NA".to_string(),
         ];
         Ok(bed_fields)
-    }
-    pub fn write_to_file(
-        &self,
-        writer: &mut csv::Writer<std::fs::File>,
-    ) -> Result<()> {
-        let record = vec![
-            self.reference.clone(),
-            self.position.to_string(),
-            ".".to_string(),
-            self.mod_type.to_string().to_string(),
-            ".".to_string(),
-            self.strand.to_string(),
-            ".".to_string(),
-            ".".to_string(),
-            ".".to_string(),
-            self.n_valid_cov.to_string(),
-            ".".to_string(),
-            self.n_mod.to_string(),
-            self.n_canonical.to_string(),
-            ".".to_string(),
-            ".".to_string(),
-            ".".to_string(),
-            self.n_diff.to_string(),
-            ".".to_string(),
-        ];
-        writer.write_record(&record)?;
-        Ok(())
     }
 }
 
@@ -643,6 +616,39 @@ mod tests {
         assert_eq!(record.n_valid_cov, 10);
         assert_eq!(record.n_canonical, 2);
         assert_eq!(record.n_diff, 3);
+    }
+
+    #[test]
+    fn test_pileup_record_to_bed_fields() {
+        let record = PileupRecord {
+            reference: "contig_1".to_string(),
+            position: 10,
+            strand: Strand::Positive,
+            mod_type: ModType::SixMA,
+            n_mod: 1,
+            n_valid_cov: 10,
+            n_canonical: 9,
+            n_diff: 3,
+        };
+        let bed_fields = record.to_bed_fields().unwrap();
+        assert_eq!(bed_fields.len(), 18);
+        assert_eq!(bed_fields[0], "contig_1");
+        assert_eq!(bed_fields[1], "10");    
+        assert_eq!(bed_fields[2], "11"); // end position is start + 1
+        assert_eq!(bed_fields[3], "a");
+        assert_eq!(bed_fields[4], "10");
+        assert_eq!(bed_fields[5], "+");
+        assert_eq!(bed_fields[6], "10"); // start position compatibility
+        assert_eq!(bed_fields[7], "11"); // end position compatibility
+        assert_eq!(bed_fields[8], "255,0,0"); // BED RGB
+        assert_eq!(bed_fields[9], "10"); // Nvalid_cov
+        assert_eq!(bed_fields[10], "10.0"); // fraction_modified
+        assert_eq!(bed_fields[11], "1"); // Nmod
+        assert_eq!(bed_fields[12], "9"); // Ncanonical
+        assert_eq!(bed_fields[13], "NA"); // Nother_mod
+        assert_eq!(bed_fields[14], "NA"); // Ndelete
+        assert_eq!(bed_fields[15], "NA"); // Nfail
+        assert_eq!(bed_fields[16], "3"); // Ndiff
     }
 
     #[test]
